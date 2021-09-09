@@ -68,6 +68,15 @@ class MOAModel(RecurrentTFModelV2):
             cell_size=cell_size,
         )
 
+        self.messages_model = ActorCriticLSTM(
+            inner_obs_space,  # using the same obs space as the output's shape of the LSTM model
+            action_space,  # starting with messages-space equal to the action_space
+            action_space,
+            model_config,
+            "messages_logits",
+            cell_size=cell_size
+        )
+
         # predicts the actions of all the agents besides itself
         # create a new input reader per worker
         self.train_moa_only_when_visible = model_config["custom_options"][
@@ -87,6 +96,7 @@ class MOAModel(RecurrentTFModelV2):
             cell_size=cell_size,
         )
         self.register_variables(self.actions_model.rnn_model.variables)
+        self.register_variables(self.messages_model.variables)
         self.register_variables(self.moa_model.rnn_model.variables)
         self.actions_model.rnn_model.summary()
         self.moa_model.rnn_model.summary()
@@ -137,6 +147,7 @@ class MOAModel(RecurrentTFModelV2):
             "other_agent_actions": input_dict["obs"]["other_agent_actions"],
             "visible_agents": input_dict["obs"]["visible_agents"],
             "prev_actions": input_dict["prev_actions"],
+            "prev_messages": input_dict["prev_messages"]
         }
 
         # Add time dimension to rnn inputs
