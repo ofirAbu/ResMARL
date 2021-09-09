@@ -79,7 +79,7 @@ def add_default_args(parser):
         "--cpus_for_driver", type=int, default=0, help="Number of CPUs used by the driver"
     )
     parser.add_argument(
-        "--gpus_for_driver", type=float, default=1, help="Number of GPUs used by the driver"
+        "--gpus_for_driver", type=float, default=0, help="Number of GPUs used by the driver"
     )
     parser.add_argument(
         "--cpus_per_worker", type=int, default=1, help="Number of CPUs used by one worker"
