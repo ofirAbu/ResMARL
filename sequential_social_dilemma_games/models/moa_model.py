@@ -35,6 +35,7 @@ class MOAModel(RecurrentTFModelV2):
         # shared info about the visibility of agents.
         # Currently we assume all the agents have equally sized action spaces.
         self.num_outputs = num_outputs
+        self.action_space = action_space
         self.num_other_agents = model_config["custom_options"]["num_other_agents"]
         self.influence_divergence_measure = model_config["custom_options"][
             "influence_divergence_measure"
@@ -42,8 +43,10 @@ class MOAModel(RecurrentTFModelV2):
 
         # Declare variables that will later be used as loss fetches
         # It's
-        self._model_out = None
-        self._value_out = None
+        self._actions_model_out = None
+        self._actions_value_out = None
+        self._messages_model_out = None
+        self._messages_value_out = None
         self._action_pred = None
         self._counterfactuals = None
         self._other_agent_actions = None
@@ -99,6 +102,7 @@ class MOAModel(RecurrentTFModelV2):
         self.register_variables(self.messages_model.variables)
         self.register_variables(self.moa_model.rnn_model.variables)
         self.actions_model.rnn_model.summary()
+        self.messages_model.rnn_model.summary()
         self.moa_model.rnn_model.summary()
 
     @staticmethod
@@ -155,16 +159,18 @@ class MOAModel(RecurrentTFModelV2):
             rnn_input_dict[k] = add_time_dimension(v, seq_lens)
 
         output, new_state = self.forward_rnn(rnn_input_dict, state, seq_lens)
-        action_logits = tf.reshape(output, [-1, self.num_outputs])
+        action_logits = tf.reshape(output[0], [-1, self.num_outputs])
+        messages_logits = tf.reshape(output[-1], [-1, self.action_space])
         counterfactuals = tf.reshape(
             self._counterfactuals,
             [-1, self._counterfactuals.shape[-2], self._counterfactuals.shape[-1]],
         )
         new_state.extend([action_logits, moa_fc_output])
 
+        self.compute_messages_influence_reward()
         self.compute_influence_reward(input_dict, state[4], counterfactuals)
 
-        return action_logits, new_state
+        return [action_logits, messages_logits], new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -177,9 +183,12 @@ class MOAModel(RecurrentTFModelV2):
         """
         # Evaluate the actor-critic model
         pass_dict = {"curr_obs": input_dict["ac_trunk"]}
-        h1, c1, h2, c2, *_ = state
-        (self._model_out, self._value_out, output_h1, output_c1,) = self.actions_model.forward_rnn(
+        h1, c1, h2, c2, h3, c3, *_ = state
+        (self._actions_model_out, self._actions_value_out, output_h1, output_c1,) = self.actions_model.forward_rnn(
             pass_dict, [h1, c1], seq_lens
+        )
+        (self._messages_model_out, self._messages_value_out, output_h3, output_c3,) = self.actions_model.forward_rnn(
+            pass_dict, [h3, c3], seq_lens
         )
 
         # Evaluate the MOA, and generate counterfactual actions.
@@ -226,7 +235,7 @@ class MOAModel(RecurrentTFModelV2):
         self._other_agent_actions = input_dict["other_agent_actions"]
         self._visibility = input_dict["visible_agents"]
 
-        return self._model_out, [output_h1, output_c1, output_h2, output_c2]
+        return [self._actions_model_out, self._messages_model_out], [output_h1, output_c1, output_h2, output_c2, output_h3, output_c3]
 
     def compute_influence_reward(self, input_dict, prev_action_logits, counterfactual_logits):
         """
@@ -279,6 +288,9 @@ class MOAModel(RecurrentTFModelV2):
             influence_reward *= visibility
         influence_reward = tf.reduce_sum(influence_reward, axis=-1)
         self._social_influence_reward = influence_reward
+
+    def compute_messages_influence_reward(self):
+        return 0
 
     def marginalize_predictions_over_own_actions(self, prev_action_logits, counterfactual_logits):
         """
@@ -357,13 +369,13 @@ class MOAModel(RecurrentTFModelV2):
         return reshaped
 
     def value_function(self):
-        return tf.reshape(self._value_out, [-1])
+        return tf.reshape(self._actions_value_out, [-1])
 
     def counterfactual_actions(self):
         return self._counterfactuals
 
     def action_logits(self):
-        return self._model_out
+        return self._actions_model_out
 
     def social_influence_reward(self):
         return self._social_influence_reward

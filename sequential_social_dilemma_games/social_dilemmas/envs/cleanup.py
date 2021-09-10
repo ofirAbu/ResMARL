@@ -5,7 +5,7 @@ from numpy.random import rand
 
 from social_dilemmas.envs.agent import CleanupAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
-from social_dilemmas.envs.map_env import MapEnv
+# from social_dilemmas.envs.map_env import MapEnv
 from social_dilemmas.envs.map_env_with_messages import MapEnvWithMessages
 from social_dilemmas.maps import CLEANUP_MAP
 

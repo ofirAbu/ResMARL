@@ -4,6 +4,7 @@ from numpy.random import rand
 from social_dilemmas.envs.agent import HarvestAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 from social_dilemmas.envs.map_env import MapEnv
+from social_dilemmas.envs.map_env_with_messages import MapEnvWithMessages
 from social_dilemmas.maps import HARVEST_MAP
 
 APPLE_RADIUS = 2
@@ -16,13 +17,14 @@ SPAWN_PROB = [0, 0.005, 0.02, 0.05]
 HARVEST_VIEW_SIZE = 7
 
 
-class HarvestEnv(MapEnv):
+class HarvestEnv(MapEnvWithMessages):
     def __init__(
         self,
         ascii_map=HARVEST_MAP,
         num_agents=1,
         return_agent_actions=False,
         use_collective_reward=False,
+        use_messages_attribute=False
     ):
         super().__init__(
             ascii_map,
@@ -31,6 +33,7 @@ class HarvestEnv(MapEnv):
             num_agents,
             return_agent_actions=return_agent_actions,
             use_collective_reward=use_collective_reward,
+            use_messages_attribute=use_messages_attribute
         )
         self.apple_points = []
         for row in range(self.base_map.shape[0]):
