@@ -1,4 +1,5 @@
 import sys
+from math import sqrt
 
 import numpy as np
 from ray.rllib.models.modelv2 import ModelV2
@@ -72,13 +73,15 @@ class MOAModel(RecurrentTFModelV2):
             cell_size=cell_size,
         )
 
-        action_space = DiscreteWithDType(9, dtype=np.uint8)
-        num_outputs = 9
+        # TODO: @ofir_abu - make it more modular, sqrt is kind of magic operation building on the fact that
+        #  msg_spc=act_spc
+        self.num_outputs_of_each_model = int(sqrt(action_space.n))
+        action_space = DiscreteWithDType(self.num_outputs_of_each_model, dtype=np.uint8)
 
         self.actions_model = ActorCriticLSTM(
             inner_obs_space,
             action_space,
-            num_outputs,
+            self.num_outputs_of_each_model,
             model_config,
             "action_logits",
             cell_size=cell_size,
@@ -87,7 +90,7 @@ class MOAModel(RecurrentTFModelV2):
         self.messages_model = ActorCriticLSTM(
             inner_obs_space,  # using the same obs space as the output's shape of the LSTM model
             action_space,  # starting with messages-space equal to the action_space
-            num_outputs,
+            self.num_outputs_of_each_model,
             model_config,
             "messages_logits",
             cell_size=cell_size
@@ -102,7 +105,6 @@ class MOAModel(RecurrentTFModelV2):
             "influence_only_when_visible"
         ]
         self.moa_weight = model_config["custom_options"]["moa_loss_weight"]
-
 
         self.register_variables(self.actions_model.rnn_model.variables)
         self.register_variables(self.messages_model.rnn_model.variables)
@@ -165,8 +167,8 @@ class MOAModel(RecurrentTFModelV2):
             rnn_input_dict[k] = add_time_dimension(v, seq_lens)
 
         output, new_state = self.forward_rnn(rnn_input_dict, state, seq_lens)
-        action_logits = tf.reshape(output[0], [-1, 9])
-        messages_logits = tf.reshape(output[-1], [-1, 9])
+        action_logits = tf.reshape(output[0], [-1, self.num_outputs_of_each_model])
+        messages_logits = tf.reshape(output[-1], [-1, self.num_outputs_of_each_model])
         counterfactuals = tf.reshape(
             self._counterfactuals,
             [-1, self._counterfactuals.shape[-2], self._counterfactuals.shape[-1]],
