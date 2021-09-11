@@ -49,18 +49,20 @@ class MapEnvWithMessages(MapEnv):
         is that in current case actions are list of action and message.
         """
         self.beam_pos = []
-        agent_messages = {}
+        messages = {}
 
         if self.use_messages_attribute:
-            agent_messages = {agent_id: action_message_tuple[-1] for agent_id, action_message_tuple in actions.items()}
-            actions = {agent_id: action_message_tuple[0] for agent_id, action_message_tuple in actions.items()}
+            messages = {agent_id: (extended_action % self.action_space().n) for agent_id, extended_action in
+                        actions.items()}
+            actions = {agent_id: int(extended_action / self.action_space().n) for agent_id, extended_action in
+                       actions.items()}
 
         observations, rewards, dones, info = super().step(actions)
 
         if self.use_messages_attribute:
             for agent in self.agents.values():
                 prev_messages = np.array(
-                    [agent_messages[key] for key in sorted(agent_messages.keys()) if key != agent.agent_id]
+                    [messages[key] for key in sorted(messages.keys()) if key != agent.agent_id]
                 ).astype(np.uint8)
                 observations[agent.agent_id] = {
                     **observations[agent.agent_id],
