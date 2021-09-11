@@ -1,5 +1,6 @@
 import sys
 
+import numpy as np
 from ray.rllib.models.modelv2 import ModelV2
 from ray.rllib.models.tf.recurrent_tf_modelv2 import RecurrentTFModelV2
 from ray.rllib.policy.rnn_sequencing import add_time_dimension
@@ -9,6 +10,7 @@ from ray.rllib.utils.annotations import override
 from models.actor_critic_lstm import ActorCriticLSTM
 from models.common_layers import build_conv_layers, build_fc_layers
 from models.moa_lstm import MoaLSTM
+from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 
 tf = try_import_tf()
 
@@ -59,8 +61,20 @@ class MOAModel(RecurrentTFModelV2):
 
         # now output two heads, one for action selection and one for the prediction of other agents
         inner_obs_space = self.moa_encoder_model.output_shape[0][-1]
-
         cell_size = model_config["custom_options"].get("cell_size")
+
+        self.moa_model = MoaLSTM(
+            inner_obs_space,
+            action_space,
+            self.num_other_agents * num_outputs,
+            model_config,
+            "moa_model",
+            cell_size=cell_size,
+        )
+
+        action_space = DiscreteWithDType(9, dtype=np.uint8)
+        num_outputs = 9
+
         self.actions_model = ActorCriticLSTM(
             inner_obs_space,
             action_space,
@@ -89,14 +103,7 @@ class MOAModel(RecurrentTFModelV2):
         ]
         self.moa_weight = model_config["custom_options"]["moa_loss_weight"]
 
-        self.moa_model = MoaLSTM(
-            inner_obs_space,
-            action_space,
-            self.num_other_agents * num_outputs,
-            model_config,
-            "moa_model",
-            cell_size=cell_size,
-        )
+
         self.register_variables(self.actions_model.rnn_model.variables)
         self.register_variables(self.messages_model.rnn_model.variables)
         self.register_variables(self.moa_model.rnn_model.variables)
@@ -158,13 +165,12 @@ class MOAModel(RecurrentTFModelV2):
             rnn_input_dict[k] = add_time_dimension(v, seq_lens)
 
         output, new_state = self.forward_rnn(rnn_input_dict, state, seq_lens)
-        action_logits = tf.reshape(output[0], [-1, self.num_outputs])
-        messages_logits = tf.reshape(output[-1], [-1, self.num_outputs])
+        action_logits = tf.reshape(output[0], [-1, 9])
+        messages_logits = tf.reshape(output[-1], [-1, 9])
         counterfactuals = tf.reshape(
             self._counterfactuals,
             [-1, self._counterfactuals.shape[-2], self._counterfactuals.shape[-1]],
         )
-        new_state.extend([action_logits, messages_logits, moa_fc_output])
 
         self.compute_messages_influence_reward()
         self.compute_influence_reward(input_dict, state[4], counterfactuals)
@@ -174,7 +180,10 @@ class MOAModel(RecurrentTFModelV2):
             r = a + v_b
             return tf.reshape(r, (-1, a.shape[-1].value * b.shape[-1].value))
 
-        return transform_to_cross_sum(action_logits, messages_logits), new_state
+        expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
+        new_state.extend([expanded_actions_with_messages, moa_fc_output])
+
+        return expanded_actions_with_messages, new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -187,7 +196,7 @@ class MOAModel(RecurrentTFModelV2):
         """
         # Evaluate the actor-critic model
         pass_dict = {"curr_obs": input_dict["ac_trunk"]}
-        h1, c1, h2, c2, h3, c3, *_ = state
+        h1, c1, h2, c2, *_ = state
         (self._actions_model_out, self._actions_value_out, output_h1, output_c1,) = self.actions_model.forward_rnn(
             pass_dict, [h1, c1], seq_lens
         )
@@ -239,8 +248,7 @@ class MOAModel(RecurrentTFModelV2):
         self._other_agent_actions = input_dict["other_agent_actions"]
         self._visibility = input_dict["visible_agents"]
 
-        return [self._actions_model_out, self._messages_model_out], [output_h1, output_c1, output_h2, output_c2,
-                                                                     output_h3, output_c3]
+        return [self._actions_model_out, self._messages_model_out], [output_h1, output_c1, output_h2, output_c2]
 
     def compute_influence_reward(self, input_dict, prev_action_logits, counterfactual_logits):
         """
