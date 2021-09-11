@@ -63,7 +63,8 @@ def actor_critic_loss(policy, model, dist_class, train_batch):
     )
 
     moa_loss = setup_moa_loss(logits, policy, train_batch)
-    policy.loss.total_loss += moa_loss.total_loss
+    message_loss = 0
+    policy.loss.total_loss += moa_loss.total_loss + message_loss
 
     # store this for future statistics
     policy.moa_loss = moa_loss.total_loss

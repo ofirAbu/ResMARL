@@ -37,7 +37,7 @@ class CleanupEnv(MapEnvWithMessages):
         num_agents=1,
         return_agent_actions=False,
         use_collective_reward=False,
-        use_messages_attribute=False
+        use_messages_attribute=True
     ):
         super().__init__(
             ascii_map,

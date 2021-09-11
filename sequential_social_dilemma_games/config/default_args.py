@@ -15,13 +15,13 @@ def add_default_args(parser):
     parser.add_argument(
         "--algorithm",
         type=str,
-        default="PPO",
+        default="A3C",
         help="Name of the rllib algorithm to use. Can be A3C or PPO.",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="baseline",
+        default="moa",
         help="Name of the model to use. Can be baseline, moa, or scm",
     )
     parser.add_argument(
