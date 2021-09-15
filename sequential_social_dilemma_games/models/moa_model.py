@@ -1,5 +1,7 @@
 import sys
+from math import sqrt
 
+import numpy as np
 from ray.rllib.models.modelv2 import ModelV2
 from ray.rllib.models.tf.recurrent_tf_modelv2 import RecurrentTFModelV2
 from ray.rllib.policy.rnn_sequencing import add_time_dimension
@@ -9,6 +11,7 @@ from ray.rllib.utils.annotations import override
 from models.actor_critic_lstm import ActorCriticLSTM
 from models.common_layers import build_conv_layers, build_fc_layers
 from models.moa_lstm import MoaLSTM
+from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 
 tf = try_import_tf()
 
@@ -42,8 +45,10 @@ class MOAModel(RecurrentTFModelV2):
 
         # Declare variables that will later be used as loss fetches
         # It's
-        self._model_out = None
-        self._value_out = None
+        self._actions_model_out = None
+        self._actions_value_out = None
+        self._messages_model_out = None
+        self._messages_value_out = None
         self._action_pred = None
         self._counterfactuals = None
         self._other_agent_actions = None
@@ -57,15 +62,38 @@ class MOAModel(RecurrentTFModelV2):
 
         # now output two heads, one for action selection and one for the prediction of other agents
         inner_obs_space = self.moa_encoder_model.output_shape[0][-1]
-
         cell_size = model_config["custom_options"].get("cell_size")
+
+        self.moa_model = MoaLSTM(
+            inner_obs_space,
+            action_space,
+            self.num_other_agents * num_outputs,
+            model_config,
+            "moa_model",
+            cell_size=cell_size,
+        )
+
+        # TODO: @ofir_abu - make it more modular, sqrt is kind of magic operation building on the fact that
+        #  msg_spc=act_spc
+        self.num_outputs_of_each_model = int(sqrt(action_space.n))
+        action_space = DiscreteWithDType(self.num_outputs_of_each_model, dtype=np.uint8)
+
         self.actions_model = ActorCriticLSTM(
             inner_obs_space,
             action_space,
-            num_outputs,
+            self.num_outputs_of_each_model,
             model_config,
             "action_logits",
             cell_size=cell_size,
+        )
+
+        self.messages_model = ActorCriticLSTM(
+            inner_obs_space,  # using the same obs space as the output's shape of the LSTM model
+            action_space,  # starting with messages-space equal to the action_space
+            self.num_outputs_of_each_model,
+            model_config,
+            "messages_logits",
+            cell_size=cell_size
         )
 
         # predicts the actions of all the agents besides itself
@@ -78,17 +106,11 @@ class MOAModel(RecurrentTFModelV2):
         ]
         self.moa_weight = model_config["custom_options"]["moa_loss_weight"]
 
-        self.moa_model = MoaLSTM(
-            inner_obs_space,
-            action_space,
-            self.num_other_agents * num_outputs,
-            model_config,
-            "moa_model",
-            cell_size=cell_size,
-        )
         self.register_variables(self.actions_model.rnn_model.variables)
+        self.register_variables(self.messages_model.rnn_model.variables)
         self.register_variables(self.moa_model.rnn_model.variables)
         self.actions_model.rnn_model.summary()
+        self.messages_model.rnn_model.summary()
         self.moa_model.rnn_model.summary()
 
     @staticmethod
@@ -137,6 +159,7 @@ class MOAModel(RecurrentTFModelV2):
             "other_agent_actions": input_dict["obs"]["other_agent_actions"],
             "visible_agents": input_dict["obs"]["visible_agents"],
             "prev_actions": input_dict["prev_actions"],
+            "other_agent_messages": input_dict["obs"]["other_agent_messages"]
         }
 
         # Add time dimension to rnn inputs
@@ -144,16 +167,25 @@ class MOAModel(RecurrentTFModelV2):
             rnn_input_dict[k] = add_time_dimension(v, seq_lens)
 
         output, new_state = self.forward_rnn(rnn_input_dict, state, seq_lens)
-        action_logits = tf.reshape(output, [-1, self.num_outputs])
+        action_logits = tf.reshape(output[0], [-1, self.num_outputs_of_each_model])
+        messages_logits = tf.reshape(output[-1], [-1, self.num_outputs_of_each_model])
         counterfactuals = tf.reshape(
             self._counterfactuals,
             [-1, self._counterfactuals.shape[-2], self._counterfactuals.shape[-1]],
         )
-        new_state.extend([action_logits, moa_fc_output])
 
+        self.compute_messages_influence_reward()
         self.compute_influence_reward(input_dict, state[4], counterfactuals)
 
-        return action_logits, new_state
+        def transform_to_cross_sum(a, b):
+            v_b = tf.concat([[b]] * a.shape[-1].value, axis=1)
+            r = a + v_b
+            return tf.reshape(r, (-1, a.shape[-1].value * b.shape[-1].value))
+
+        expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
+        new_state.extend([expanded_actions_with_messages, moa_fc_output])
+
+        return expanded_actions_with_messages, new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -167,7 +199,10 @@ class MOAModel(RecurrentTFModelV2):
         # Evaluate the actor-critic model
         pass_dict = {"curr_obs": input_dict["ac_trunk"]}
         h1, c1, h2, c2, *_ = state
-        (self._model_out, self._value_out, output_h1, output_c1,) = self.actions_model.forward_rnn(
+        (self._actions_model_out, self._actions_value_out, output_h1, output_c1,) = self.actions_model.forward_rnn(
+            pass_dict, [h1, c1], seq_lens
+        )
+        (self._messages_model_out, self._messages_value_out, output_h3, output_c3,) = self.messages_model.forward_rnn(
             pass_dict, [h1, c1], seq_lens
         )
 
@@ -215,7 +250,7 @@ class MOAModel(RecurrentTFModelV2):
         self._other_agent_actions = input_dict["other_agent_actions"]
         self._visibility = input_dict["visible_agents"]
 
-        return self._model_out, [output_h1, output_c1, output_h2, output_c2]
+        return [self._actions_model_out, self._messages_model_out], [output_h1, output_c1, output_h2, output_c2]
 
     def compute_influence_reward(self, input_dict, prev_action_logits, counterfactual_logits):
         """
@@ -268,6 +303,9 @@ class MOAModel(RecurrentTFModelV2):
             influence_reward *= visibility
         influence_reward = tf.reduce_sum(influence_reward, axis=-1)
         self._social_influence_reward = influence_reward
+
+    def compute_messages_influence_reward(self):
+        return 0
 
     def marginalize_predictions_over_own_actions(self, prev_action_logits, counterfactual_logits):
         """
@@ -346,13 +384,13 @@ class MOAModel(RecurrentTFModelV2):
         return reshaped
 
     def value_function(self):
-        return tf.reshape(self._value_out, [-1])
+        return tf.reshape(self._actions_value_out, [-1])
 
     def counterfactual_actions(self):
         return self._counterfactuals
 
     def action_logits(self):
-        return self._model_out
+        return self._actions_model_out
 
     def social_influence_reward(self):
         return self._social_influence_reward

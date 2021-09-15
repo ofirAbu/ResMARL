@@ -6,6 +6,7 @@ from ray.rllib.agents.callbacks import DefaultCallbacks
 from social_dilemmas.envs.agent import SwitchAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 from social_dilemmas.envs.map_env import MapEnv
+from social_dilemmas.envs.map_env_with_messages import MapEnvWithMessages
 from social_dilemmas.maps import SwitchMapElements
 
 # Add custom actions to the agent
@@ -24,10 +25,11 @@ GIVE_EXTERNAL_SWITCH_REWARD = int(False)
 SWITCH_VIEW_SIZE = 3
 
 
-class SwitchEnv(MapEnv):
-    def __init__(self, args, num_agents=1, return_agent_actions=False):
+class SwitchEnv(MapEnvWithMessages):
+    def __init__(self, args, num_agents=1, return_agent_actions=False, use_messages_attribute=False):
         constructed_map = self.construct_map(args.num_switches)
-        super().__init__(constructed_map, _SWITCH_ACTIONS, SWITCH_VIEW_SIZE, num_agents)
+        super().__init__(constructed_map, _SWITCH_ACTIONS, SWITCH_VIEW_SIZE, num_agents,
+                         use_messages_attribute=use_messages_attribute)
         self.return_agent_actions = return_agent_actions
         self.initial_map_state = dict()
         self.switch_locations = []
