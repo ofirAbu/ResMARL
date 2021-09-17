@@ -3,6 +3,7 @@ import random
 import numpy as np
 from numpy.random import rand
 
+from config.constants import CLEANUP_BASE_ACTION_SPACE_SIZE
 from social_dilemmas.envs.agent import CleanupAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 # from social_dilemmas.envs.map_env import MapEnv
@@ -32,12 +33,12 @@ appleRespawnProbability = 0.05
 
 class CleanupEnv(MapEnvWithMessages):
     def __init__(
-        self,
-        ascii_map=CLEANUP_MAP,
-        num_agents=1,
-        return_agent_actions=False,
-        use_collective_reward=False,
-        use_messages_attribute=True
+            self,
+            ascii_map=CLEANUP_MAP,
+            num_agents=1,
+            return_agent_actions=False,
+            use_collective_reward=False,
+            use_messages_attribute=True
     ):
         super().__init__(
             ascii_map,
@@ -79,10 +80,12 @@ class CleanupEnv(MapEnvWithMessages):
                     self.river_points.append([row, col])
 
         self.color_map.update(CLEANUP_COLORS)
+        self.action_space_size = CLEANUP_BASE_ACTION_SPACE_SIZE ** 2 if use_messages_attribute else \
+            CLEANUP_BASE_ACTION_SPACE_SIZE
 
     @property
     def action_space(self):
-        return DiscreteWithDType(81, dtype=np.uint8)
+        return DiscreteWithDType(self.action_space_size, dtype=np.uint8)
 
     def custom_reset(self):
         """Initialize the walls and the waste"""
@@ -181,10 +184,10 @@ class CleanupEnv(MapEnvWithMessages):
                 self.current_apple_spawn_prob = appleRespawnProbability
             else:
                 spawn_prob = (
-                    1
-                    - (waste_density - thresholdRestoration)
-                    / (thresholdDepletion - thresholdRestoration)
-                ) * appleRespawnProbability
+                                     1
+                                     - (waste_density - thresholdRestoration)
+                                     / (thresholdDepletion - thresholdRestoration)
+                             ) * appleRespawnProbability
                 self.current_apple_spawn_prob = spawn_prob
 
     def compute_permitted_area(self):
