@@ -3,6 +3,7 @@ import math
 import numpy as np
 from ray.rllib.agents.callbacks import DefaultCallbacks
 
+from config.constants import SWITCH_BASE_ACTION_SPACE_SIZE
 from social_dilemmas.envs.agent import SwitchAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 from social_dilemmas.envs.map_env import MapEnv
@@ -59,6 +60,8 @@ class SwitchEnv(MapEnvWithMessages):
                     self.door_locations.append((row, col))
 
         self.color_map.update(SWITCH_COLORS)
+        self.action_space_size = SWITCH_BASE_ACTION_SPACE_SIZE ** 2 if use_messages_attribute else \
+            SWITCH_BASE_ACTION_SPACE_SIZE
 
     @staticmethod
     def construct_map(num_switches):
@@ -101,7 +104,7 @@ class SwitchEnv(MapEnvWithMessages):
 
     @property
     def action_space(self):
-        return DiscreteWithDType(8, dtype=np.uint8)
+        return DiscreteWithDType(self.action_space_size, dtype=np.uint8)
 
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()

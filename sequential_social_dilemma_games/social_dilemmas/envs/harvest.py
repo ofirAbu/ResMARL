@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.random import rand
 
+from config.constants import HARVEST_BASE_ACTION_SPACE_SIZE
 from social_dilemmas.envs.agent import HarvestAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 from social_dilemmas.envs.map_env import MapEnv
@@ -41,9 +42,12 @@ class HarvestEnv(MapEnvWithMessages):
                 if self.base_map[row, col] == b"A":
                     self.apple_points.append([row, col])
 
+        self.action_space_size = HARVEST_BASE_ACTION_SPACE_SIZE ** 2 if use_messages_attribute else \
+            HARVEST_BASE_ACTION_SPACE_SIZE
+
     @property
     def action_space(self):
-        return DiscreteWithDType(8, dtype=np.uint8)
+        return DiscreteWithDType(self.action_space_size, dtype=np.uint8)
 
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()
