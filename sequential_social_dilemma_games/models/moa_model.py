@@ -32,6 +32,8 @@ class MOAModel(RecurrentTFModelV2):
         """
         super(MOAModel, self).__init__(obs_space, action_space, num_outputs, model_config, name)
 
+        self.action_num_outputs = int(num_outputs / 2)
+        self.messages_num_outputs = int(num_outputs / 2)
         self.obs_space = obs_space
 
         # The inputs of the shared trunk. We will concatenate the observation space with
@@ -67,7 +69,7 @@ class MOAModel(RecurrentTFModelV2):
         self.moa_model = MoaLSTM(
             inner_obs_space,
             action_space,
-            self.num_other_agents * num_outputs,
+            self.num_other_agents * self.action_num_outputs,
             model_config,
             "moa_model",
             cell_size=cell_size,
@@ -75,13 +77,13 @@ class MOAModel(RecurrentTFModelV2):
 
         # TODO: @ofir_abu - make it more modular, sqrt is kind of magic operation building on the fact that
         #  msg_spc=act_spc
-        self.num_outputs_of_each_model = int(sqrt(action_space.n))
-        action_space = DiscreteWithDType(self.num_outputs_of_each_model, dtype=np.uint8)
+        # self.num_outputs_of_each_model = int(sqrt(action_space.n))
+        # action_space = DiscreteWithDType(self.num_outputs_of_each_model, dtype=np.uint8)
 
         self.actions_model = ActorCriticLSTM(
             inner_obs_space,
             action_space,
-            self.num_outputs_of_each_model,
+            self.action_num_outputs,
             model_config,
             "action_logits",
             cell_size=cell_size,
@@ -90,7 +92,7 @@ class MOAModel(RecurrentTFModelV2):
         self.messages_model = ActorCriticLSTM(
             inner_obs_space,  # using the same obs space as the output's shape of the LSTM model
             action_space,  # starting with messages-space equal to the action_space
-            self.num_outputs_of_each_model,
+            self.messages_num_outputs,
             model_config,
             "messages_logits",
             cell_size=cell_size
@@ -167,8 +169,8 @@ class MOAModel(RecurrentTFModelV2):
             rnn_input_dict[k] = add_time_dimension(v, seq_lens)
 
         output, new_state = self.forward_rnn(rnn_input_dict, state, seq_lens)
-        action_logits = tf.reshape(output[0], [-1, self.num_outputs_of_each_model])
-        messages_logits = tf.reshape(output[-1], [-1, self.num_outputs_of_each_model])
+        action_logits = tf.reshape(output[0], [-1, self.action_num_outputs])
+        messages_logits = tf.reshape(output[-1], [-1, self.messages_num_outputs])
         counterfactuals = tf.reshape(
             self._counterfactuals,
             [-1, self._counterfactuals.shape[-2], self._counterfactuals.shape[-1]],
@@ -177,15 +179,15 @@ class MOAModel(RecurrentTFModelV2):
         self.compute_messages_influence_reward()
         self.compute_influence_reward(input_dict, state[4], counterfactuals)
 
-        def transform_to_cross_sum(a, b):
-            v_b = tf.concat([[b]] * a.shape[-1].value, axis=1)
-            r = a + v_b
-            return tf.reshape(r, (-1, a.shape[-1].value * b.shape[-1].value))
+        # def transform_to_cross_sum(a, b):
+        #     v_b = tf.concat([[b]] * a.shape[-1].value, axis=1)
+        #     r = a + v_b
+        #     return tf.reshape(r, (-1, a.shape[-1].value * b.shape[-1].value))
+        #
+        # expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
+        new_state.extend([(action_logits, messages_logits), moa_fc_output])
 
-        expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
-        new_state.extend([expanded_actions_with_messages, moa_fc_output])
-
-        return expanded_actions_with_messages, new_state
+        return tf.concat([action_logits, messages_logits], axis=-1), new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -214,8 +216,8 @@ class MOAModel(RecurrentTFModelV2):
         # that we will use for the next timestep's counterfactual predictions.
         prev_moa_trunk = input_dict["prev_moa_trunk"]
         other_actions = input_dict["other_agent_actions"]
-        agent_action = tf.expand_dims(input_dict["prev_actions"], axis=-1)
-        all_actions = tf.concat([agent_action, other_actions], axis=-1, name="concat_true_actions")
+        agent_action = tf.expand_dims(input_dict["prev_actions"][:,:,0], axis=-1)
+        all_actions = tf.concat([tf.cast(agent_action, tf.uint8), other_actions], axis=-1, name="concat_true_actions")
         self._true_one_hot_actions = self._reshaped_one_hot_actions(all_actions, "forward_one_hot")
         true_action_pass_dict = {
             "curr_obs": prev_moa_trunk,
@@ -266,7 +268,7 @@ class MOAModel(RecurrentTFModelV2):
 
         # We don't have the current action yet, so the reward for the previous step is calculated.
         # This is corrected for in the function weigh_and_add_influence_reward
-        prev_agent_actions = tf.cast(tf.reshape(input_dict["prev_actions"], [-1, 1]), tf.int32)
+        prev_agent_actions = tf.cast(tf.reshape(input_dict["prev_actions"][:,0], [-1, 1]), tf.int32)
         # Use the agent's actions as indices to select the predicted logits of other agents for
         # actions that the agent did take, discard the rest.
         predicted_logits = tf.gather_nd(
@@ -274,7 +276,7 @@ class MOAModel(RecurrentTFModelV2):
         )
 
         predicted_logits = tf.reshape(
-            predicted_logits, [-1, self.num_other_agents, self.num_outputs]
+            predicted_logits, [-1, self.num_other_agents, self.action_num_outputs]
         )
         predicted_logits = tf.nn.softmax(predicted_logits)
         predicted_logits = predicted_logits / tf.reduce_sum(
@@ -324,12 +326,12 @@ class MOAModel(RecurrentTFModelV2):
         # Indexing is currently [B, Agent actions, num_other_agents * other_agent_logits]
         # Change to [B, Agent actions, num other agents, other agent logits]
         counterfactual_logits = tf.reshape(
-            counterfactual_logits, [-1, self.num_outputs, self.num_other_agents, self.num_outputs],
+            counterfactual_logits, [-1, self.action_num_outputs, self.num_other_agents, self.action_num_outputs],
         )
 
         counterfactual_logits = tf.nn.softmax(counterfactual_logits)
         # Change shape to broadcast probability of each action over counterfactual actions
-        logits = tf.reshape(logits, [-1, self.num_outputs, 1, 1])
+        logits = tf.reshape(logits, [-1, self.action_num_outputs, 1, 1])
         normalized_counterfactual_logits = logits * counterfactual_logits
         # Remove counterfactual action dimension
         marginal_probs = tf.reduce_sum(normalized_counterfactual_logits, axis=-3)
@@ -373,13 +375,13 @@ class MOAModel(RecurrentTFModelV2):
         :param actions_tensor: The tensor containing actions.
         :return: Tensor containing one-hot reshaped action values.
         """
-        one_hot_actions = tf.keras.backend.one_hot(actions_tensor, self.num_outputs)
+        one_hot_actions = tf.keras.backend.one_hot(actions_tensor, self.action_num_outputs)
         # Extract partially known tensor shape and combine with actions_layer known shape
         # This combination is a bit contrived for a reason: the shape cannot be determined otherwise
         batch_time_dims = [
             tf.shape(one_hot_actions)[k] for k in range(one_hot_actions.shape.rank - 2)
         ]
-        reshape_dims = batch_time_dims + [actions_tensor.shape[-1] * self.num_outputs]
+        reshape_dims = batch_time_dims + [actions_tensor.shape[-1] * self.action_num_outputs]
         reshaped = tf.reshape(one_hot_actions, shape=reshape_dims, name=name)
         return reshaped
 

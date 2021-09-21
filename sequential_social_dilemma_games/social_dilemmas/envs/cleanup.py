@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+from gym.spaces import Tuple
 from numpy.random import rand
 
 from config.constants import CLEANUP_BASE_ACTION_SPACE_SIZE
@@ -85,7 +86,7 @@ class CleanupEnv(MapEnvWithMessages):
 
     @property
     def action_space(self):
-        return DiscreteWithDType(self.action_space_size, dtype=np.uint8)
+        return Tuple((DiscreteWithDType(9, dtype=np.uint8), DiscreteWithDType(9, dtype=np.uint8)))
 
     def custom_reset(self):
         """Initialize the walls and the waste"""

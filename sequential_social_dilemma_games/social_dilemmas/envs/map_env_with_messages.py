@@ -52,10 +52,14 @@ class MapEnvWithMessages(MapEnv):
         messages = {}
 
         if self.use_messages_attribute:
-            messages = {agent_id: (extended_action % self.action_space().n) for agent_id, extended_action in
+            messages = {agent_id: extended_action[1] for agent_id, extended_action in
                         actions.items()}
-            actions = {agent_id: int(extended_action / self.action_space().n) for agent_id, extended_action in
+            actions = {agent_id: extended_action[0] for agent_id, extended_action in
                        actions.items()}
+            # messages = {agent_id: (extended_action % self.action_space().n) for agent_id, extended_action in
+            #             actions.items()}
+            # actions = {agent_id: int(extended_action / self.action_space().n) for agent_id, extended_action in
+            #            actions.items()}
 
         observations, rewards, dones, info = super().step(actions)
 
