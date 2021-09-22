@@ -231,7 +231,7 @@ class MOAModel(RecurrentTFModelV2):
 
         # Make counterfactual predictions, used for computing the influence reward.
         counterfactual_preds = []
-        for i in range(self.num_outputs):
+        for i in range(self.action_num_outputs):
             # Shape of other_actions is (num_envs, ?, num_other_agents)
             # To add the counterfactual action to it, other_actions can be padded with the constant
             # action value.
