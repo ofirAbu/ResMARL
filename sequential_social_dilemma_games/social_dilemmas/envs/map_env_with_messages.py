@@ -56,15 +56,12 @@ class MapEnvWithMessages(MapEnv):
                         actions.items()}
             actions = {agent_id: extended_action[0] for agent_id, extended_action in
                        actions.items()}
-            # messages = {agent_id: (extended_action % self.action_space().n) for agent_id, extended_action in
-            #             actions.items()}
-            # actions = {agent_id: int(extended_action / self.action_space().n) for agent_id, extended_action in
-            #            actions.items()}
 
         observations, rewards, dones, info = super().step(actions)
 
         if self.use_messages_attribute:
             for agent in self.agents.values():
+                # TODO improve complexity by list comprehension over a the whole messages array
                 prev_messages = np.array(
                     [messages[key] for key in sorted(messages.keys()) if key != agent.agent_id]
                 ).astype(np.uint8)
@@ -77,7 +74,7 @@ class MapEnvWithMessages(MapEnv):
 
     def reset(self):
         """
-        Also need overwrite since it returns obseration and messages
+        Also need overwrite since it returns observation and messages
         """
         observations = super().reset()
         if self.use_messages_attribute:

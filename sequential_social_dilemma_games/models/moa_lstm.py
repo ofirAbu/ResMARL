@@ -28,7 +28,7 @@ class MoaLSTM(RecurrentTFModelV2):
         obs_input_layer = tf.keras.layers.Input(shape=(None, obs_space), name="obs_inputs")
 
         actions_layer = tf.keras.layers.Input(
-            shape=(None, self.num_outputs + self.action_space[0].n), name="action_input"
+            shape=(None, self.num_outputs + self.action_space.n), name="action_input"
         )
         concat_input = tf.keras.layers.concatenate([obs_input_layer, actions_layer])
 
@@ -81,6 +81,6 @@ class MoaLSTM(RecurrentTFModelV2):
         return [
             np.zeros(self.cell_size, np.float32),
             np.zeros(self.cell_size, np.float32),
-            np.zeros(self.action_space[0].n, np.float32),
+            np.zeros(self.action_space.n, np.float32),
             np.zeros([self.obs_space], np.float32),
         ]

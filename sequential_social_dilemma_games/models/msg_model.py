@@ -1,7 +1,4 @@
 import sys
-from math import sqrt
-
-import numpy as np
 from ray.rllib.models.modelv2 import ModelV2
 from ray.rllib.models.tf.recurrent_tf_modelv2 import RecurrentTFModelV2
 from ray.rllib.policy.rnn_sequencing import add_time_dimension
@@ -11,12 +8,11 @@ from ray.rllib.utils.annotations import override
 from models.actor_critic_lstm import ActorCriticLSTM
 from models.common_layers import build_conv_layers, build_fc_layers
 from models.moa_lstm import MoaLSTM
-from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 
 tf = try_import_tf()
 
 
-class MOAModel(RecurrentTFModelV2):
+class MSGModel(RecurrentTFModelV2):
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         """
         A model with convolutional layers connected to two distinct sequences of fully connected
@@ -30,7 +26,7 @@ class MOAModel(RecurrentTFModelV2):
         parameters.
         :param name: The model name.
         """
-        super(MOAModel, self).__init__(obs_space, action_space, num_outputs, model_config, name)
+        super(MSGModel, self).__init__(obs_space, action_space, num_outputs, model_config, name)
 
         self.action_num_outputs = int(num_outputs / 2)
         self.messages_num_outputs = int(num_outputs / 2)
@@ -68,7 +64,7 @@ class MOAModel(RecurrentTFModelV2):
 
         self.moa_model = MoaLSTM(
             inner_obs_space,
-            action_space[0],
+            action_space,
             self.num_other_agents * self.action_num_outputs,
             model_config,
             "moa_model",
@@ -82,7 +78,7 @@ class MOAModel(RecurrentTFModelV2):
 
         self.actions_model = ActorCriticLSTM(
             inner_obs_space,
-            action_space[0],
+            action_space,
             self.action_num_outputs,
             model_config,
             "action_logits",
@@ -91,7 +87,7 @@ class MOAModel(RecurrentTFModelV2):
 
         self.messages_model = ActorCriticLSTM(
             inner_obs_space,  # using the same obs space as the output's shape of the LSTM model
-            action_space[1],  # starting with messages-space equal to the action_space
+            action_space,  # starting with messages-space equal to the action_space
             self.messages_num_outputs,
             model_config,
             "messages_logits",
