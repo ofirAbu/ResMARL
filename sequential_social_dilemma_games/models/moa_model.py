@@ -185,9 +185,10 @@ class MOAModel(RecurrentTFModelV2):
         #     return tf.reshape(r, (-1, a.shape[-1].value * b.shape[-1].value))
         #
         # expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
-        new_state.extend([(action_logits, messages_logits), moa_fc_output])
+        new_state.extend(
+            [tf.reshape(tf.concat([action_logits, messages_logits], axis=-1), self.num_outputs), moa_fc_output])
 
-        return tf.concat([action_logits, messages_logits], axis=-1), new_state
+        return tf.reshape(tf.concat([action_logits, messages_logits], axis=-1), self.num_outputs), new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -216,7 +217,7 @@ class MOAModel(RecurrentTFModelV2):
         # that we will use for the next timestep's counterfactual predictions.
         prev_moa_trunk = input_dict["prev_moa_trunk"]
         other_actions = input_dict["other_agent_actions"]
-        agent_action = tf.expand_dims(input_dict["prev_actions"][:,:,0], axis=-1)
+        agent_action = tf.expand_dims(input_dict["prev_actions"][:, :, 0], axis=-1)
         all_actions = tf.concat([tf.cast(agent_action, tf.uint8), other_actions], axis=-1, name="concat_true_actions")
         self._true_one_hot_actions = self._reshaped_one_hot_actions(all_actions, "forward_one_hot")
         true_action_pass_dict = {
@@ -268,7 +269,7 @@ class MOAModel(RecurrentTFModelV2):
 
         # We don't have the current action yet, so the reward for the previous step is calculated.
         # This is corrected for in the function weigh_and_add_influence_reward
-        prev_agent_actions = tf.cast(tf.reshape(input_dict["prev_actions"][:,0], [-1, 1]), tf.int32)
+        prev_agent_actions = tf.cast(tf.reshape(input_dict["prev_actions"][:, 0], [-1, 1]), tf.int32)
         # Use the agent's actions as indices to select the predicted logits of other agents for
         # actions that the agent did take, discard the rest.
         predicted_logits = tf.gather_nd(
