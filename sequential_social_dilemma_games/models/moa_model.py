@@ -186,9 +186,9 @@ class MOAModel(RecurrentTFModelV2):
         #
         # expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
         new_state.extend(
-            [tf.reshape(tf.concat([action_logits, messages_logits], axis=-1), self.num_outputs), moa_fc_output])
+            [tf.reshape(tf.tuple([action_logits, messages_logits]), [-1, self.num_outputs]), moa_fc_output])
 
-        return tf.reshape(tf.concat([action_logits, messages_logits], axis=-1), self.num_outputs), new_state
+        return tf.reshape(tf.tuple([action_logits, messages_logits]), [-1, self.num_outputs]), new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
