@@ -50,6 +50,7 @@ class MOAModel(RecurrentTFModelV2):
         self._actions_model_out = None
         self._actions_value_out = None
         self._messages_model_out = None
+        self._model_out = None
         self._messages_value_out = None
         self._action_pred = None
         self._counterfactuals = None
@@ -185,10 +186,11 @@ class MOAModel(RecurrentTFModelV2):
         #     return tf.reshape(r, (-1, a.shape[-1].value * b.shape[-1].value))
         #
         # expanded_actions_with_messages = transform_to_cross_sum(action_logits, messages_logits)
+        self._model_out = tf.reshape(tf.concat([action_logits, messages_logits], axis=-1), [-1, self.num_outputs])
         new_state.extend(
-            [tf.reshape(tf.tuple([action_logits, messages_logits]), [-1, self.action_num_outputs, 2]), moa_fc_output])
+            [tf.reshape(tf.tuple([action_logits, messages_logits]), [-1, self.action_num_outputs]), moa_fc_output])
 
-        return tf.reshape(tf.tuple([action_logits, messages_logits]),  [-1, self.action_num_outputs, 2]), new_state
+        return self._model_out, new_state
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -393,7 +395,7 @@ class MOAModel(RecurrentTFModelV2):
         return self._counterfactuals
 
     def action_logits(self):
-        return self._actions_model_out
+        return self._model_out
 
     def social_influence_reward(self):
         return self._social_influence_reward
