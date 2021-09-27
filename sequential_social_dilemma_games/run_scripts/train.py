@@ -22,6 +22,7 @@ from algorithms.ppo_moa import build_ppo_moa_trainer
 from algorithms.ppo_scm import build_ppo_scm_trainer
 from config.default_args import add_default_args
 from models.baseline_model import BaselineModel
+from models.messages_model import MessagesModel
 from models.moa_model import MOAModel
 from models.scm_model import SocialCuriosityModule
 from social_dilemmas.envs.env_creator import get_env_creator
@@ -52,6 +53,8 @@ def build_experiment_config_dict(args):
         ModelCatalog.register_custom_model(model_name, MOAModel)
     elif args.model == "baseline":
         ModelCatalog.register_custom_model(model_name, BaselineModel)
+    elif args.model == "messages":
+        ModelCatalog.register_custom_model(model_name, MessagesModel)
 
     # Each policy can have a different configuration (including custom model)
     def gen_policy():
@@ -190,6 +193,13 @@ def get_trainer(args, config):
             trainer = build_ppo_baseline_trainer(config)
         if args.algorithm == "IMPALA":
             trainer = build_impala_baseline_trainer(config)
+    elif args.model == "messages":
+        if args.algorithm == "A3C":
+            trainer = build_a3c_baseline_trainer(config)
+        if args.algorithm == "PPO":
+            trainer = build_ppo_baseline_trainer(config)
+        if args.algorithm == "IMPALA":
+            trainer = build_impala_baseline_trainer(config)
     elif args.model == "moa":
         if args.algorithm == "A3C":
             trainer = build_a3c_moa_trainer(config)
@@ -314,6 +324,11 @@ def create_hparam_tune_dict(model, is_config=False):
     baseline_options = {}
     model_options = {}
     if model == "baseline":
+        baseline_options = {
+            "entropy_coeff": wrapper(random.expovariate(1000)),
+            "lr": wrapper(random.uniform(0.00001, 0.01)),
+        }
+    if model == "messages":
         baseline_options = {
             "entropy_coeff": wrapper(random.expovariate(1000)),
             "lr": wrapper(random.uniform(0.00001, 0.01)),

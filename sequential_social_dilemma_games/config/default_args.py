@@ -21,8 +21,8 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="baseline",
-        help="Name of the model to use. Can be baseline, moa, or scm",
+        default="messages",
+        help="Name of the model to use. Can be baseline, messages, moa, or scm",
     )
     parser.add_argument(
         "--resume", action="store_true", default=False, help="Resume previous experiment.",
