@@ -21,7 +21,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="moa",
+        default="baseline",
         help="Name of the model to use. Can be baseline, moa, or scm",
     )
     parser.add_argument(
