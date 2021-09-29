@@ -76,11 +76,6 @@ class MOAModel(RecurrentTFModelV2):
             cell_size=cell_size,
         )
 
-        # TODO: @ofir_abu - make it more modular, sqrt is kind of magic operation building on the fact that
-        #  msg_spc=act_spc
-        # self.num_outputs_of_each_model = int(sqrt(action_space.n))
-        # action_space = DiscreteWithDType(self.num_outputs_of_each_model, dtype=np.uint8)
-
         self.actions_model = ActorCriticLSTM(
             inner_obs_space,
             action_space[0],

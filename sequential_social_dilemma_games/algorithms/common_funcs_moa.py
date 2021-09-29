@@ -15,6 +15,10 @@ VISIBILITY = "others_visibility"
 VISIBILITY_MATRIX = "visibility_matrix"
 SOCIAL_INFLUENCE_REWARD = "social_influence_reward"
 EXTRINSIC_REWARD = "extrinsic_reward"
+MESSAGES_REWARD = "messages_intrinsic_reward"
+PREDICTED_CONFUSION = "predicted_confusion"
+OTHERS_CONFUSION = "others_confusion"
+SELF_CONFUSION = "self_confusion"
 
 # Frozen logits of the policy that computed the action
 ACTION_LOGITS = "action_logits"
@@ -27,8 +31,8 @@ class InfluenceScheduleMixIn(object):
         config = config["model"]["custom_options"]
         self.baseline_influence_reward_weight = config["influence_reward_weight"]
         if any(
-            config[key] is None
-            for key in ["influence_reward_schedule_steps", "influence_reward_schedule_weights"]
+                config[key] is None
+                for key in ["influence_reward_schedule_steps", "influence_reward_schedule_weights"]
         ):
             self.compute_influence_reward_weight = lambda: self.baseline_influence_reward_weight
         self.influence_reward_schedule_steps = config["influence_reward_schedule_steps"]
@@ -64,7 +68,7 @@ class InfluenceScheduleMixIn(object):
 
 
 class MOALoss(object):
-    def __init__(self, pred_logits, true_actions, loss_weight=1.0, others_visibility=None):
+    def __init__(self, pred_logits, true_actions, loss_weight=1.0, others_visibility=None, message="MOA CE loss"):
         """Train MOA model with supervised cross entropy loss on a trajectory.
         The model is trying to predict others' actions at timestep t+1 given all
         actions at timestep t.
@@ -96,7 +100,30 @@ class MOALoss(object):
 
         # Flatten loss to one value for the entire batch
         self.total_loss = tf.reduce_mean(self.ce_per_entry) * loss_weight
-        tf.Print(self.total_loss, [self.total_loss], message="MOA CE loss")
+        tf.Print(self.total_loss, [self.total_loss], message=message)
+
+
+class SelfConfusionLoss(object):
+    def __init__(self, pred_confusion, true_confusion, loss_weight=1.0, others_visibility=None, message="MOA CE loss"):
+        """Train MOA model with supervised cross entropy loss on a trajectory.
+        The model is trying to predict others' actions at timestep t+1 given all
+        actions at timestep t.
+        Returns:
+            A scalar loss tensor (cross-entropy loss).
+        """
+        # Pred_logits[n] contains the prediction made at n-1 for actions taken at n, and a prediction
+        # for t=0 cannot have been made at timestep -1, as the simulation starts at timestep 0.
+        # Thus we remove the first prediction, as this value contains no sensible data.
+        # NB: This means we start at n=1.
+        pred_confusion = pred_confusion[1:-1]  # [B, N, A]
+
+        # true_actions[n] contains the actions made by other agents at n-1.
+        # Therefore, true_actions[2] contains actions made at time 1,
+        # which is where action_logits starts.
+        true_confusion = tf.cast(true_confusion[2:], tf.int32)  # [B, N]
+        self.total_loss = tf.reduce_mean(
+            tf.squared_difference(tf.cast(pred_confusion, dtype=tf.float32), tf.cast(true_confusion, dtype=tf.float32)))
+        tf.Print(self.total_loss, [self.total_loss], message=message)
 
 
 def setup_moa_loss(logits, policy, train_batch):
@@ -120,9 +147,34 @@ def setup_moa_loss(logits, policy, train_batch):
     return moa_loss
 
 
+def setup_self_confusion_loss(logits, policy, train_batch):
+    # Instantiate the prediction loss
+    confusion_preds = train_batch[PREDICTED_CONFUSION]
+    confusion_preds = tf.reshape(confusion_preds, [-1, policy.model.num_other_agents, logits.shape[-1]])
+    true_actions = train_batch[SELF_CONFUSION]
+    # 0/1 multiplier array representing whether each agent is visible to
+    # the current agent.
+
+    self_confusion_loss = SelfConfusionLoss(
+        confusion_preds,
+        true_actions,
+        loss_weight=policy.moa_loss_weight,
+        others_visibility=None,
+        message="Self Confusion Loss"
+    )
+    return self_confusion_loss
+
+
 def moa_postprocess_trajectory(policy, sample_batch, other_agent_batches=None, episode=None):
     # Weigh social influence reward and add to batch.
     sample_batch = weigh_and_add_influence_reward(policy, sample_batch)
+
+    return sample_batch
+
+
+def msg_postprocess_trajectory(policy, sample_batch, other_agent_batches=None, episode=None):
+    # Weigh social influence reward and add to batch.
+    sample_batch = weigh_and_add_msg_reward(policy, sample_batch)
 
     return sample_batch
 
@@ -141,6 +193,26 @@ def weigh_and_add_influence_reward(policy, sample_batch):
 
     # Add to trajectory
     sample_batch[SOCIAL_INFLUENCE_REWARD] = influence
+    sample_batch["extrinsic_reward"] = sample_batch["rewards"]
+    sample_batch["rewards"] = sample_batch["rewards"] + influence
+
+    return sample_batch
+
+
+def weigh_and_add_msg_reward(policy, sample_batch):
+    cur_msg_reward_weight = policy.compute_influence_reward_weight()
+    # Since the reward calculation is delayed by 1 step, sample_batch[SOCIAL_INFLUENCE_REWARD][0]
+    # contains the reward for timestep -1, which does not exist. Hence we shift the array.
+    # Then, pad with a 0-value at the end to make the influence rewards align with sample_batch.
+    # This leaks some information about the episode end though.
+    influence = np.concatenate((sample_batch[MESSAGES_REWARD][1:], [0]))
+
+    # Clip and weigh influence reward
+    influence = np.clip(influence, -policy.influence_reward_clip, policy.influence_reward_clip)
+    influence = influence * cur_msg_reward_weight
+
+    # Add to trajectory
+    sample_batch[MESSAGES_REWARD] = influence
     sample_batch["extrinsic_reward"] = sample_batch["rewards"]
     sample_batch["rewards"] = sample_batch["rewards"] + influence
 
@@ -219,6 +291,20 @@ def moa_fetches(policy):
     }
 
 
+def messages_fetches(policy):
+    """Adds logits, moa predictions of counterfactual actions to experience train_batches."""
+    return {
+        # Be aware that this is frozen here so that we don't
+        # propagate agent actions through the reward
+        ACTION_LOGITS: policy.model.action_logits(),
+        # TODO(@evinitsky) remove this once we figure out how to split the obs
+        VISIBILITY: policy.model.visibility(),
+        MESSAGES_REWARD: policy.model.messages_reward(),
+        PREDICTED_CONFUSION: policy.model.predicted_intrinsic_objective(),
+        SELF_CONFUSION: policy.model.manage_confusion()
+    }
+
+
 class MOAConfigInitializerMixIn(object):
     def __init__(self, config):
         config = config["model"]["custom_options"]
@@ -266,6 +352,13 @@ def setup_moa_mixins(policy, obs_space, action_space, config):
 
 
 def get_moa_mixins():
+    return [
+        MOAConfigInitializerMixIn,
+        InfluenceScheduleMixIn,
+    ]
+
+
+def get_messages_mixins():
     return [
         MOAConfigInitializerMixIn,
         InfluenceScheduleMixIn,

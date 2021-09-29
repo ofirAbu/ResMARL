@@ -14,6 +14,7 @@ from ray.tune.registry import register_env
 from ray.tune.schedulers import PopulationBasedTraining
 
 from algorithms.a3c_baseline import build_a3c_baseline_trainer
+from algorithms.a3c_messages import build_a3c_messages_trainer
 from algorithms.a3c_moa import build_a3c_moa_trainer
 from algorithms.impala_baseline import build_impala_baseline_trainer
 from algorithms.impala_moa import build_impala_moa_trainer
@@ -22,7 +23,7 @@ from algorithms.ppo_moa import build_ppo_moa_trainer
 from algorithms.ppo_scm import build_ppo_scm_trainer
 from config.default_args import add_default_args
 from models.baseline_model import BaselineModel
-from models.messages_model import MessagesModel
+from models.messages_self_confusion_model import MessagesWithSelfConfusionModel
 from models.moa_model import MOAModel
 from models.scm_model import SocialCuriosityModule
 from social_dilemmas.envs.env_creator import get_env_creator
@@ -54,7 +55,7 @@ def build_experiment_config_dict(args):
     elif args.model == "baseline":
         ModelCatalog.register_custom_model(model_name, BaselineModel)
     elif args.model == "messages":
-        ModelCatalog.register_custom_model(model_name, MessagesModel)
+        ModelCatalog.register_custom_model(model_name, MessagesWithSelfConfusionModel)
 
     # Each policy can have a different configuration (including custom model)
     def gen_policy():
@@ -195,7 +196,7 @@ def get_trainer(args, config):
             trainer = build_impala_baseline_trainer(config)
     elif args.model == "messages":
         if args.algorithm == "A3C":
-            trainer = build_a3c_baseline_trainer(config)
+            trainer = build_a3c_messages_trainer(config)
         if args.algorithm == "PPO":
             trainer = build_ppo_baseline_trainer(config)
         if args.algorithm == "IMPALA":
@@ -236,7 +237,7 @@ def initialize_ray(args):
         sys.exit("You cannot have both local mode and multi node on at the same time")
     ray.init(
         address=args.address,
-        local_mode=args.local_mode,
+        local_mode=True, #args.local_mode,
         memory=args.memory,
         object_store_memory=args.object_store_memory,
         redis_max_memory=args.redis_max_memory,

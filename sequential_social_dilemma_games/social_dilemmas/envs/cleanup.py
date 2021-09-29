@@ -1,14 +1,15 @@
 import random
 
 import numpy as np
-from gym.spaces import Tuple
+from gym.spaces import Tuple, Box
 from numpy.random import rand
 
-from config.constants import CLEANUP_BASE_ACTION_SPACE_SIZE
+from config.constants import CLEANUP_BASE_ACTION_SPACE_SIZE, CONFUSION_UPPER_BOUND
 from social_dilemmas.envs.agent import CleanupAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 # from social_dilemmas.envs.map_env import MapEnv
 from social_dilemmas.envs.map_env_with_messages import MapEnvWithMessages
+from social_dilemmas.envs.map_env_with_messages_confusion import MapEnvWithMessagesAndConfusion
 from social_dilemmas.maps import CLEANUP_MAP
 
 # Add custom actions to the agent
@@ -32,12 +33,12 @@ wasteSpawnProbability = 0.5
 appleRespawnProbability = 0.05
 
 
-class CleanupEnv(MapEnvWithMessages):
+class CleanupEnv(MapEnvWithMessagesAndConfusion):
     def __init__(
             self,
             ascii_map=CLEANUP_MAP,
             num_agents=1,
-            return_agent_actions=False,
+            return_agent_actions=True,
             use_collective_reward=False,
             use_messages_attribute=True
     ):
@@ -81,14 +82,20 @@ class CleanupEnv(MapEnvWithMessages):
                     self.river_points.append([row, col])
 
         self.color_map.update(CLEANUP_COLORS)
-        self.action_space_size = CLEANUP_BASE_ACTION_SPACE_SIZE ** 2 if use_messages_attribute else \
-            CLEANUP_BASE_ACTION_SPACE_SIZE
+        self.max_confusion_value = CONFUSION_UPPER_BOUND
+
 
     @property
     def action_space(self):
-        base_action_space = DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8)
-
-        return Tuple([base_action_space] * 2) if self.use_messages_attribute else base_action_space
+        # base_action_space = DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8)
+        #
+        # base_action_space = Tuple([base_action_space] * 2) if self.use_messages_attribute else base_action_space
+        # return base_action_space + Box(low=0, high=self.max_confusion_value, shape=(1, ), dtype=np.float32)
+        return Tuple([
+            DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
+            DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
+            Box(low=0, high=self.max_confusion_value, shape=(1,), dtype=np.float32)
+        ])
 
     def custom_reset(self):
         """Initialize the walls and the waste"""
