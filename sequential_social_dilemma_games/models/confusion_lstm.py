@@ -7,30 +7,33 @@ from ray.rllib.utils.annotations import override
 tf = try_import_tf()
 
 
-class ConfusionLSTM(RecurrentTFModelV2):
+class NextRewardLSTM(RecurrentTFModelV2):
     def __init__(
-        self, obs_space, confusion_space, num_outputs, model_config, name, cell_size=64,
+        self, obs_space, messages_space, num_outputs, model_config, name, cell_size=64,
     ):
         """
         The LSTM in the Model of Other Agents head.
         :param obs_space: The size of the previous fully-connected layer.
-        :param confusion_space: The boundaries of a confusion measure.
+        :param messages_space: vector of messages length
         :param num_outputs: The number of outputs. Normally num_other_agents * action_space.
         :param model_config: The model config dict.
         :param name: The model name.
         :param cell_size: The amount of LSTM units.
         """
-        super(ConfusionLSTM, self).__init__(obs_space, confusion_space, num_outputs, model_config, name)
+        super(NextRewardLSTM, self).__init__(obs_space, messages_space, num_outputs, model_config, name)
 
         self.cell_size = cell_size
 
         # Define input layers
         obs_input_layer = tf.keras.layers.Input(shape=(None, obs_space), name="obs_inputs")
 
-        confusion_layer = tf.keras.layers.Input(
-            shape=(None, self.num_outputs + self.action_space.n), name="confusion_input"
+        messages_layer = tf.keras.layers.Input(
+            shape=(None, messages_space.n), name="messages_input"
         )
-        concat_input = tf.keras.layers.concatenate([obs_input_layer, confusion_layer])
+        value_preds_layer = tf.keras.layers.Input(
+            shape=(None, 1), name="value_input"
+        )
+        concat_input = tf.keras.layers.concatenate([obs_input_layer, messages_layer, value_preds_layer])
 
         state_in_h = tf.keras.layers.Input(shape=(cell_size,), name="h")
         state_in_c = tf.keras.layers.Input(shape=(cell_size,), name="c")
@@ -45,13 +48,14 @@ class ConfusionLSTM(RecurrentTFModelV2):
         )
 
         # Postprocess LSTM output with another hidden layer and compute values
-        logits = tf.keras.layers.Dense(
+        confusion_level_predicted = tf.keras.layers.Dense(
             self.num_outputs, activation=tf.keras.activations.linear, name=name
         )(lstm_out)
 
         inputs = [obs_input_layer, seq_in, state_in_h, state_in_c]
-        inputs.insert(1, confusion_layer)
-        outputs = [logits, state_h, state_c]
+        inputs.insert(1, messages_layer)
+        inputs.insert(2, value_preds_layer)
+        outputs = [confusion_level_predicted, state_h, state_c]
         self.rnn_model = tf.keras.Model(inputs=inputs, outputs=outputs, name="ConfusionPredictionModel")
 
     @override(RecurrentTFModelV2)
@@ -64,7 +68,8 @@ class ConfusionLSTM(RecurrentTFModelV2):
         :return: The MOA predictions and new state.
         """
         rnn_input = [input_dict["curr_obs"], seq_lens] + state
-        rnn_input.insert(1, input_dict["prev_total_confusion"])
+        rnn_input.insert(1, input_dict["other_agent_messages"])
+        rnn_input.insert(2, input_dict["values_predicted"])
         model_out, h, c = self.rnn_model(rnn_input)
         return model_out, h, c
 
@@ -81,6 +86,6 @@ class ConfusionLSTM(RecurrentTFModelV2):
         return [
             np.zeros(self.cell_size, np.float32),
             np.zeros(self.cell_size, np.float32),
-            np.zeros(self.action_space.n, np.float32),
+            np.zeros(1, np.float32),  # reward is a scalar measurement
             np.zeros([self.obs_space], np.float32),
         ]

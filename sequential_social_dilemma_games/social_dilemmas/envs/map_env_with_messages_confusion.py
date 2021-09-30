@@ -4,7 +4,7 @@ from gym.spaces import Box, Dict
 from social_dilemmas.envs.map_env import MapEnv
 
 
-class MapEnvWithMessagesAndConfusion(MapEnv):
+class MapEnvWithMessagesAndRewardPrediction(MapEnv):
     def __init__(
             self,
             ascii_map,
@@ -24,7 +24,7 @@ class MapEnvWithMessagesAndConfusion(MapEnv):
                          return_agent_actions=return_agent_actions,
                          use_collective_reward=use_collective_reward)
         self.use_messages_attribute = use_messages_attribute
-        self.max_confusion_value = None
+        self.max_reward_value = None
 
     @property
     def observation_space(self):
@@ -36,8 +36,8 @@ class MapEnvWithMessagesAndConfusion(MapEnv):
                     low=0, high=len(self.all_actions), shape=(self.num_agents - 1,),
                     dtype=np.uint8,
                 ),
-                "other_agent_confusions": Box(
-                    low=0, high=self.max_confusion_value, shape=(self.num_agents - 1,),
+                "other_agent_predicted_rewards": Box(
+                    low=0, high=self.max_reward_value, shape=(self.num_agents - 1,),
                     dtype=np.float32,
                 ),
             }
@@ -55,13 +55,13 @@ class MapEnvWithMessagesAndConfusion(MapEnv):
         """
         self.beam_pos = []
         messages = {}
-        confusions_prev_prev_step = {}
+        predicted_rewards_for_current_step = {}
 
         if self.use_messages_attribute:
             messages = {agent_id: extended_action[1] for agent_id, extended_action in
                         actions.items()}
-            confusions_prev_prev_step = {agent_id: extended_action[-1][0] for agent_id, extended_action in
-                                         actions.items()}
+            predicted_rewards_for_current_step = {agent_id: extended_action[-1][0] for agent_id, extended_action in
+                                                  actions.items()}
             actions = {agent_id: extended_action[0] for agent_id, extended_action in
                        actions.items()}
 
@@ -70,17 +70,18 @@ class MapEnvWithMessagesAndConfusion(MapEnv):
         if self.use_messages_attribute:
             for agent in self.agents.values():
                 # TODO improve complexity by list comprehension over a the whole messages array
-                prev_messages = np.array(
+                others_messages = np.array(
                     [messages[key] for key in sorted(messages.keys()) if key != agent.agent_id]
                 ).astype(np.uint8)
-                prev_prev_confusions = np.array(
-                    [confusions_prev_prev_step[key] for key in sorted(confusions_prev_prev_step.keys()) if
+                others_predicted_rewards_for_current_step = np.array(
+                    [predicted_rewards_for_current_step[key] for key in
+                     sorted(predicted_rewards_for_current_step.keys()) if
                      key != agent.agent_id]
                 ).astype(np.uint8)
                 observations[agent.agent_id] = {
                     **observations[agent.agent_id],
-                    "other_agent_messages": prev_messages,
-                    "other_agent_confusions": prev_prev_confusions,
+                    "other_agent_messages": others_messages,
+                    "other_agent_predicted_rewards": others_predicted_rewards_for_current_step,
                 }
 
         return observations, rewards, dones, info
@@ -91,13 +92,14 @@ class MapEnvWithMessagesAndConfusion(MapEnv):
         """
         observations = super().reset()
         if self.use_messages_attribute:
-            prev_messages = np.array([0 for _ in range(self.num_agents - 1)]).astype(np.uint8)
-            prev_prev_confusions = np.array([0 for _ in range(self.num_agents - 1)]).astype(np.float32)
+            others_messages = np.array([0 for _ in range(self.num_agents - 1)]).astype(np.uint8)
+            others_predicted_rewards_for_current_step = np.array([0 for _ in range(self.num_agents - 1)]).astype(
+                np.float32)
             for agent in self.agents.values():
                 observations[agent.agent_id] = {
                     **observations[agent.agent_id],
-                    "other_agent_messages": prev_messages,
-                    "other_agent_confusions": prev_prev_confusions,
+                    "other_agent_messages": others_messages,
+                    "other_agent_predicted_rewards": others_predicted_rewards_for_current_step,
                 }
 
         return observations
