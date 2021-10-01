@@ -68,7 +68,7 @@ class NextRewardLSTM(RecurrentTFModelV2):
         :return: The MOA predictions and new state.
         """
         rnn_input = [input_dict["curr_obs"], seq_lens] + state
-        rnn_input.insert(1, input_dict["other_agent_messages"])
+        rnn_input.insert(1, input_dict["one_hot_total_messages"])
         rnn_input.insert(2, input_dict["values_predicted"])
         model_out, h, c = self.rnn_model(rnn_input)
         return model_out, h, c
