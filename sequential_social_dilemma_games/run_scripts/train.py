@@ -133,11 +133,11 @@ def build_experiment_config_dict(args):
     if args.model != "baseline":
         config["model"]["custom_options"].update(
             {
-                "moa_loss_weight": args.moa_loss_weight,
+                "moa_loss_weight": args.messages_loss_weight,
                 "influence_reward_clip": 10,
                 "influence_reward_weight": args.influence_reward_weight,
-                "influence_reward_schedule_steps": args.influence_reward_schedule_steps,
-                "influence_reward_schedule_weights": args.influence_reward_schedule_weights,
+                "influence_reward_schedule_steps": args.messages_reward_schedule_steps,
+                "influence_reward_schedule_weights": args.messages_reward_schedule_weights,
                 "return_agent_actions": True,
                 "influence_divergence_measure": "kl",
                 "train_moa_only_when_visible": True,

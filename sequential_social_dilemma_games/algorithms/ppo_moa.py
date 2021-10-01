@@ -102,7 +102,7 @@ def extra_moa_stats(policy, train_batch):
         **base_stats,
         "var_gnorm": tf.global_norm([x for x in policy.model.trainable_variables()]),
         "cur_influence_reward_weight": tf.cast(
-            policy.cur_influence_reward_weight_tensor, tf.float32
+            policy.cur_messages_reward_weight_tensor, tf.float32
         ),
         SOCIAL_INFLUENCE_REWARD: train_batch[SOCIAL_INFLUENCE_REWARD],
         EXTRINSIC_REWARD: train_batch[EXTRINSIC_REWARD],

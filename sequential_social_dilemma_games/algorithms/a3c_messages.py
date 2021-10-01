@@ -105,7 +105,7 @@ def stats(policy, train_batch):
         "var_gnorm": tf.global_norm([x for x in policy.model.trainable_variables()]),
         "vf_loss": policy.loss.vf_loss,
         "cur_influence_reward_weight": tf.cast(
-            policy.cur_influence_reward_weight_tensor, tf.float32
+            policy.cur_messages_reward_weight_tensor, tf.float32
         ),
         MESSAGES_REWARD: train_batch[MESSAGES_REWARD],
         EXTRINSIC_REWARD: train_batch[EXTRINSIC_REWARD],
