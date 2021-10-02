@@ -16,13 +16,7 @@ from ray.rllib.utils.tf_ops import make_tf_callable
 from algorithms.common_funcs_messages import msg_postprocess_trajectory, setup_next_reward_prediction_loss, \
     messages_fetches, MESSAGES_REWARD, setup_messages_mixins, get_messages_mixins
 from algorithms.common_funcs_moa import (
-    EXTRINSIC_REWARD,
-    SOCIAL_INFLUENCE_REWARD,
-    get_moa_mixins,
-    moa_fetches,
-    moa_postprocess_trajectory,
-    setup_moa_loss,
-    setup_moa_mixins,
+    EXTRINSIC_REWARD
 )
 
 tf = try_import_tf()

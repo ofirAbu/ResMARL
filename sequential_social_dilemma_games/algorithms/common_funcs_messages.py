@@ -80,8 +80,8 @@ class SelfRewardPredictorLoss(object):
 
 def setup_next_reward_prediction_loss(logits, policy, train_batch):
     # Instantiate the prediction loss
-    actual_actions_taken = train_batch[AGENT_PREV_ACTIONS]
-    next_reward_preds = train_batch[AGENT_PREDICTED_NEXT_REWARD]
+    # actual_actions_taken = train_batch[AGENT_PREV_ACTIONS]
+    next_reward_preds = train_batch[AGENT_PREDICTED_NEXT_REWARD][:, 0, 0]
     next_reward_preds = tf.reshape(next_reward_preds, [-1])
     true_rewards = train_batch[EXTRINSIC_REWARD]
     # 0/1 multiplier array representing whether each agent is visible to

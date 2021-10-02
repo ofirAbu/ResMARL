@@ -74,10 +74,11 @@ class MapEnvWithMessagesAndRewardPrediction(MapEnv):
                     [messages[key] for key in sorted(messages.keys()) if key != agent.agent_id]
                 ).astype(np.uint8)
                 others_predicted_rewards_for_current_step = np.array(
-                    [predicted_rewards_for_current_step[key] for key in
+                    [np.clip(predicted_rewards_for_current_step[key], a_min=0.1,
+                             a_max=self.max_reward_value) for key in
                      sorted(predicted_rewards_for_current_step.keys()) if
                      key != agent.agent_id]
-                ).astype(np.uint8)
+                ).astype(np.float32)
                 observations[agent.agent_id] = {
                     **observations[agent.agent_id],
                     "other_agent_messages": others_messages,
