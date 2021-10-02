@@ -237,7 +237,7 @@ def initialize_ray(args):
         sys.exit("You cannot have both local mode and multi node on at the same time")
     ray.init(
         address=args.address,
-        local_mode=True, #args.local_mode,
+        local_mode=args.local_mode,
         memory=args.memory,
         object_store_memory=args.object_store_memory,
         redis_max_memory=args.redis_max_memory,

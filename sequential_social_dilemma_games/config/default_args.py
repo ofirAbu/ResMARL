@@ -21,7 +21,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="baseline",
+        default="messages",
         help="Name of the model to use. Can be baseline, messages, moa, or scm",
     )
     parser.add_argument(
@@ -103,7 +103,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--local_mode",
         action="store_true",
-        default=False,
+        default=True,
         help="Force all the computation onto the driver. Useful for debugging.",
     )
     parser.add_argument(
@@ -185,6 +185,28 @@ def add_default_args(parser):
         help="Values for the moa reward schedule. Linearly interpolates using "
         "--influence_reward_schedule_steps. The final value is"
         " --influence_reward_weight * interpolated_value",
+    )
+
+    # MESSAGES parameters
+    parser.add_argument(
+        "--messages_loss_weight", type=float, default=1.0, help="Loss weight of the moa network",
+    )
+    parser.add_argument(
+        "--messages_reward_schedule_steps",
+        nargs="+",
+        type=int,
+        default=None,
+        help="Amounts of environment steps at which the messages reward has a value specified in"
+             "--influence_reward_schedule_weights",
+    )
+    parser.add_argument(
+        "--messages_reward_schedule_weights",
+        nargs="+",
+        type=float,
+        default=None,
+        help="Values for the moa reward schedule. Linearly interpolates using "
+             "--influence_reward_schedule_steps. The final value is"
+             " --influence_reward_weight * interpolated_value",
     )
 
     # SCM parameters

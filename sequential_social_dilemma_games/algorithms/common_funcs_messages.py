@@ -8,7 +8,8 @@ from algorithms.common_funcs_baseline import BaselineResetConfigMixin
 
 tf = try_import_tf()
 
-OTHERS_ACTIONS = "others_actions"
+OTHERS_PREV_ACTIONS = "others_actions"
+AGENT_PREV_ACTIONS = "agent_prev_actions"
 PREDICTED_ACTIONS = "predicted_actions"
 VISIBILITY = "others_visibility"
 VISIBILITY_MATRIX = "visibility_matrix"
@@ -79,12 +80,13 @@ class SelfRewardPredictorLoss(object):
 
 def setup_next_reward_prediction_loss(logits, policy, train_batch):
     # Instantiate the prediction loss
+    actual_actions_taken = train_batch[AGENT_PREV_ACTIONS]
     next_reward_preds = train_batch[AGENT_PREDICTED_NEXT_REWARD]
     next_reward_preds = tf.reshape(next_reward_preds, [-1])
     true_rewards = train_batch[EXTRINSIC_REWARD]
     # 0/1 multiplier array representing whether each agent is visible to
     # the current agent.
-    if policy.train_moa_only_when_visible:
+    if policy.train_messages_only_when_visible:
         # if VISIBILITY in train_batch:
         others_visibility = train_batch[VISIBILITY]
     else:
@@ -190,7 +192,8 @@ def messages_fetches(policy):
         # Be aware that this is frozen here so that we don't
         # propagate agent actions through the reward
         ACTION_LOGITS: policy.model.action_logits(),
-        OTHERS_ACTIONS: policy.model.other_agent_actions(),
+        OTHERS_PREV_ACTIONS: policy.model.other_agent_actions(),
+        AGENT_PREV_ACTIONS: policy.model.agent_prev_actions(),
         VISIBILITY: policy.model.visibility(),
         MESSAGES_REWARD: policy.model.messages_intrinsic_reward(),
         AGENT_PREDICTED_NEXT_REWARD: policy.model.predicted_next_reward(),
@@ -205,7 +208,7 @@ class MessagesConfigInitializerMixIn(object):
             "messages_loss_weight", initializer=config["moa_loss_weight"], trainable=False
         )
         self.messages_reward_clip = config["influence_reward_clip"]
-        self.train_messages_only_when_visible = config["train_moa_only_when_visible"]
+        self.train_messages_only_when_visible = False
         self.message_only_when_visible = config["influence_only_when_visible"]
 
 

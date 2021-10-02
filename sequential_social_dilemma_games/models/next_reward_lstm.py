@@ -23,15 +23,16 @@ class NextRewardLSTM(RecurrentTFModelV2):
         super(NextRewardLSTM, self).__init__(obs_space, messages_space, num_outputs, model_config, name)
 
         self.cell_size = cell_size
+        self.messages_space = messages_space
 
         # Define input layers
         obs_input_layer = tf.keras.layers.Input(shape=(None, obs_space), name="obs_inputs")
 
         messages_layer = tf.keras.layers.Input(
-            shape=(None, messages_space.n), name="messages_input"
+            shape=(None, messages_space), name="messages_input"
         )
         value_preds_layer = tf.keras.layers.Input(
-            shape=(None, 1), name="value_input"
+            shape=(None, num_outputs), name="value_input"
         )
         concat_input = tf.keras.layers.concatenate([obs_input_layer, messages_layer, value_preds_layer])
 
@@ -48,15 +49,15 @@ class NextRewardLSTM(RecurrentTFModelV2):
         )
 
         # Postprocess LSTM output with another hidden layer and compute values
-        confusion_level_predicted = tf.keras.layers.Dense(
-            self.num_outputs, activation=tf.keras.activations.linear, name=name
+        next_reward_predicted = tf.keras.layers.Dense(
+            1, activation=tf.keras.activations.linear, name=name
         )(lstm_out)
 
         inputs = [obs_input_layer, seq_in, state_in_h, state_in_c]
         inputs.insert(1, messages_layer)
         inputs.insert(2, value_preds_layer)
-        outputs = [confusion_level_predicted, state_h, state_c]
-        self.rnn_model = tf.keras.Model(inputs=inputs, outputs=outputs, name="ConfusionPredictionModel")
+        outputs = [next_reward_predicted, state_h, state_c]
+        self.rnn_model = tf.keras.Model(inputs=inputs, outputs=outputs, name="NextRewardPredictionModel")
 
     @override(RecurrentTFModelV2)
     def forward_rnn(self, input_dict, state, seq_lens):
@@ -86,6 +87,6 @@ class NextRewardLSTM(RecurrentTFModelV2):
         return [
             np.zeros(self.cell_size, np.float32),
             np.zeros(self.cell_size, np.float32),
-            np.zeros(1, np.float32),  # reward is a scalar measurement
+            # np.zeros(self.messages_space, np.float32),  # reward is a scalar measurement
             np.zeros([self.obs_space], np.float32),
         ]

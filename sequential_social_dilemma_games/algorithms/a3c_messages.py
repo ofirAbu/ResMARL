@@ -13,13 +13,15 @@ from ray.rllib.utils import try_import_tf
 from ray.rllib.utils.explained_variance import explained_variance
 from ray.rllib.utils.tf_ops import make_tf_callable
 
+from algorithms.common_funcs_messages import msg_postprocess_trajectory, setup_next_reward_prediction_loss, \
+    messages_fetches, MESSAGES_REWARD, setup_messages_mixins, get_messages_mixins
 from algorithms.common_funcs_moa import (
     EXTRINSIC_REWARD,
-    MESSAGES_REWARD,
-    get_messages_mixins,
-    messages_fetches,
-    msg_postprocess_trajectory,
-    setup_self_confusion_loss,
+    SOCIAL_INFLUENCE_REWARD,
+    get_moa_mixins,
+    moa_fetches,
+    moa_postprocess_trajectory,
+    setup_moa_loss,
     setup_moa_mixins,
 )
 
@@ -41,7 +43,7 @@ class A3CLoss(object):
         self.total_loss = self.pi_loss + self.vf_loss * vf_loss_coeff - self.entropy * entropy_coeff
 
 
-def postprocess_a3c_moa(policy, sample_batch, other_agent_batches=None, episode=None):
+def postprocess_a3c_messages(policy, sample_batch, other_agent_batches=None, episode=None):
     """Adds the policy logits, VF preds, and advantages to the trajectory."""
 
     batch = msg_postprocess_trajectory(policy, sample_batch)
@@ -49,7 +51,7 @@ def postprocess_a3c_moa(policy, sample_batch, other_agent_batches=None, episode=
     return batch
 
 
-def actor_critic_loss(policy, model, dist_class, train_batch):
+def msg_actor_critic_loss(policy, model, dist_class, train_batch):
     logits, _ = model.from_batch(train_batch)
     action_dist = dist_class(logits, model)
     policy.loss = A3CLoss(
@@ -62,12 +64,11 @@ def actor_critic_loss(policy, model, dist_class, train_batch):
         policy.config["entropy_coeff"],
     )
 
-    moa_loss = setup_self_confusion_loss(logits, policy, train_batch)
-    message_loss = 0
-    policy.loss.total_loss += moa_loss.total_loss + message_loss
+    next_reward_loss = setup_next_reward_prediction_loss(logits, policy, train_batch)
+    policy.loss.total_loss += next_reward_loss.total_loss
 
     # store this for future statistics
-    policy.moa_loss = moa_loss.total_loss
+    policy.next_reward_loss = next_reward_loss.total_loss
 
     return policy.loss.total_loss
 
@@ -104,12 +105,12 @@ def stats(policy, train_batch):
         "policy_entropy": policy.loss.entropy,
         "var_gnorm": tf.global_norm([x for x in policy.model.trainable_variables()]),
         "vf_loss": policy.loss.vf_loss,
-        "cur_influence_reward_weight": tf.cast(
+        "cur_next_reward_prediction_weight": tf.cast(
             policy.cur_messages_reward_weight_tensor, tf.float32
         ),
         MESSAGES_REWARD: train_batch[MESSAGES_REWARD],
         EXTRINSIC_REWARD: train_batch[EXTRINSIC_REWARD],
-        "moa_loss": policy.moa_loss,
+        "next_reward_prediction_loss": policy.next_reward_loss,
     }
     return base_stats
 
@@ -134,22 +135,22 @@ def clip_gradients(policy, optimizer, loss):
 def setup_mixins(policy, obs_space, action_space, config):
     ValueNetworkMixin.__init__(policy)
     LearningRateSchedule.__init__(policy, config["lr"], config["lr_schedule"])
-    setup_moa_mixins(policy, obs_space, action_space, config)
+    setup_messages_mixins(policy, obs_space, action_space, config)
 
 
-def build_a3c_messages_trainer(moa_config):
+def build_a3c_messages_trainer(msg_config):
     tf.keras.backend.set_floatx("float32")
-    trainer_name = "MOAA3CTrainer"
-    moa_config["use_gae"] = False
+    trainer_name = "MessagesA3CTrainer"
+    msg_config["use_gae"] = False
 
     a3c_tf_policy = build_tf_policy(
         name="A3CAuxTFPolicy",
-        get_default_config=lambda: moa_config,
-        loss_fn=actor_critic_loss,
+        get_default_config=lambda: msg_config,
+        loss_fn=msg_actor_critic_loss,
         stats_fn=stats,
         grad_stats_fn=grad_stats,
         gradients_fn=clip_gradients,
-        postprocess_fn=postprocess_a3c_moa,
+        postprocess_fn=postprocess_a3c_messages,
         extra_action_fetches_fn=add_value_function_fetch,
         before_loss_init=setup_mixins,
         mixins=[ValueNetworkMixin, LearningRateSchedule] + get_messages_mixins(),
@@ -158,7 +159,7 @@ def build_a3c_messages_trainer(moa_config):
     trainer = build_trainer(
         name=trainer_name,
         default_policy=a3c_tf_policy,
-        default_config=moa_config,
+        default_config=msg_config,
         validate_config=validate_config,
     )
 

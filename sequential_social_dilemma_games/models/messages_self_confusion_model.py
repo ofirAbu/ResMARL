@@ -27,11 +27,12 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         self._other_agent_actions = None
         self._visibility = None
         self._intrinsic_reward = None
+        self._counterfactuals_reward_predictions = None
 
         self.obs_space = obs_space
         self.num_outputs = num_outputs
-        self.actions_num_outputs = int((num_outputs - CONFUSION_UPPER_BOUND) / 2)
-        self.messages_num_outputs = int((num_outputs - CONFUSION_UPPER_BOUND) / 2)
+        self.actions_num_outputs = int((num_outputs - 1) / 2)
+        self.messages_num_outputs = int((num_outputs - 1) / 2)
 
         self.num_other_agents = model_config["custom_options"]["num_other_agents"]
         self.influence_divergence_measure = model_config["custom_options"][
@@ -39,6 +40,9 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         ]
         self.influence_only_when_visible = model_config["custom_options"][
             "influence_only_when_visible"
+        ]
+        self.train_moa_only_when_visible = model_config["custom_options"][
+            "train_moa_only_when_visible"
         ]
 
         self.encoder_model = self.create_messages_model_encoder(obs_space, model_config)
@@ -51,7 +55,7 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         cell_size = model_config["custom_options"].get("cell_size")
 
         inner_obs_space_with_messages = inner_obs_space + self.num_other_agents
-        inner_obs_space_with_messages_and_confusion = inner_obs_space + self.num_other_agents * 2
+        inner_obs_space_with_messages_and_predicted_reward = inner_obs_space + self.num_other_agents * 2
 
         # note that action space is [action, message, conf_level]
         self.actions_policy_model = ActorCriticLSTM(
@@ -63,7 +67,7 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
             cell_size=cell_size,
         )
         self.messages_policy_model = ActorCriticLSTM(
-            inner_obs_space_with_messages_and_confusion,
+            inner_obs_space_with_messages_and_predicted_reward,
             action_space[1],
             self.messages_num_outputs,
             model_config,
@@ -72,8 +76,8 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         )
         self.next_reward_prediction_model = NextRewardLSTM(
             inner_obs_space,
-            action_space[1],
-            1,
+            action_space[1].n * (self.num_other_agents + 1),
+            self.actions_num_outputs,
             model_config,
             "next_reward_model",
             cell_size=cell_size,
@@ -126,6 +130,7 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         """
         self._other_agent_actions = input_dict["obs"]["other_agent_actions"]
         self._visibility = input_dict["obs"]["visible_agents"]
+        self._agent_prev_actions = input_dict["prev_actions"]
 
         ac_critic_encoded_obs = self.encoder_model(inputs=input_dict["obs"]["curr_obs"])
         rnn_input_dict = {
@@ -145,11 +150,9 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
                                              state=state,
                                              seq_lens=seq_lens)
         # output here should've values for (actions, messages, self_confusion)
-        # TODO: need to remember to replace by calculated self_confusion value
-        # TODO: need to debug and understand state list
         self.compute_intrinsic_reward(input_dict)
 
-        return tf.reshape(output, [-1, self.num_outputs]), new_state
+        return tf.reshape(output, [-1, self.num_outputs]), new_state + [ac_critic_encoded_obs]
 
     def forward_rnn(self, input_dict, state, seq_lens):
         """
@@ -164,18 +167,26 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         h1, c1, h2, c2, h3, c3, *_ = state
 
         # Compute the next action
-        ac_pass_dict = {"curr_obs": input_dict["ac_trunk"]}
+        ac_pass_dict = {
+            "curr_obs": tf.concat(
+                [input_dict["ac_trunk"], tf.cast(input_dict["other_agent_messages"], dtype=tf.float32)], axis=-1)
+        }
         (self._actions_model_out, self._actions_value_out, output_h1,
          output_c1,) = self.actions_policy_model.forward_rnn(
             ac_pass_dict, [h1, c1], seq_lens
         )
 
+        messages_pass_dict = {
+            "curr_obs": tf.concat(
+                [input_dict["ac_trunk"], tf.cast(input_dict["other_agent_messages"], dtype=tf.float32),
+                 tf.cast(input_dict["other_agent_predicted_rewards"], dtype=tf.float32)], axis=-1)
+        }
         (self._messages_model_out, self._messages_value_out, output_h2,
-         output_c2,) = self.actions_policy_model.forward_rnn(
-            ac_pass_dict, [h2, c2], seq_lens
+         output_c2,) = self.messages_policy_model.forward_rnn(
+            messages_pass_dict, [h2, c2], seq_lens
         )
 
-        other_messages = input_dict["obs"]["other_agent_messages"]
+        other_messages = input_dict["other_agent_messages"]
         agent_messages = tf.expand_dims(input_dict["prev_actions"][:, :, 1], axis=-1)
         all_messages = tf.concat([tf.cast(agent_messages, tf.uint8), other_messages], axis=-1,
                                  name="concat_true_messages")
@@ -183,7 +194,7 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
                                                                 "forward_one_hot_messages")
 
         reward_predictor_pass_dict = {
-            "curr_obs": input_dict["curr_obs"],
+            "curr_obs": input_dict["ac_trunk"],
             "one_hot_total_messages": self._true_one_hot_messages,
             "values_predicted": self._actions_model_out
         }
@@ -191,6 +202,7 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         self._next_reward_pred, output_h3, output_c3 = self.next_reward_prediction_model.forward_rnn(
             reward_predictor_pass_dict, [h3, c3], seq_lens
         )
+        self._next_reward_pred = tf.concat([self._next_reward_pred, self._next_reward_pred], axis=-1)
 
         # computing counterfactual immediate reward assuming different messages
         counterfactuals_reward_predictions = []
@@ -205,29 +217,29 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
             )
 
             reward_predictor_dict = {
-                "curr_obs": input_dict["curr_obs"],
-                "other_agent_messages": one_hot_counterfactual_messages,
+                "curr_obs": input_dict["ac_trunk"],
+                "one_hot_total_messages": one_hot_counterfactual_messages,
                 "values_predicted": self._actions_model_out
             }
 
             counterfactual_next_reward_pred, _, _ = self.next_reward_prediction_model.forward_rnn(reward_predictor_dict,
                                                                                                   [h3, c3],
                                                                                                   seq_lens)
-            counterfactuals_reward_predictions.append(tf.expand_dims(counterfactual_next_reward_pred, axis=-2))
+            counterfactuals_reward_predictions.append(counterfactual_next_reward_pred)
 
         self._counterfactuals_reward_predictions = tf.concat(
-            counterfactuals_reward_predictions, axis=-2, name="concat_counterfactuals_reward_preds"
+            counterfactuals_reward_predictions, axis=-1, name="concat_counterfactuals_reward_preds"
         )
 
         self._other_agent_actions = input_dict["other_agent_actions"]
         self._visibility = input_dict["visible_agents"]
 
-        self._model_out = tf.reshape(tf.concat([self._actions_model_out, self._messages_model_out], axis=-1),
-                                     [-1, self.num_outputs])
-        self._value_out = tf.reshape(tf.concat([self._actions_value_out, self._messages_value_out], axis=-1),
-                                     [-1, self.num_outputs])
+        self._model_out = tf.reshape(
+            tf.concat([self._actions_model_out, self._messages_model_out, self._next_reward_pred], axis=-1),
+            [-1, self.num_outputs])
+        self._value_out = tf.reshape(self._actions_value_out, [-1])
 
-        return self._model_out, [output_h1, output_c1]
+        return self._model_out, [output_h1, output_c1, output_h2, output_c2, output_h3, output_c3]
 
     def compute_intrinsic_reward(self, input_dict):
         """
@@ -238,20 +250,23 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         """
         prev_actions = input_dict["prev_actions"]
         prev_rewards = input_dict["prev_rewards"]
-        counterfactual_rewards = self._counterfactual_rewards
+        counterfactual_rewards = tf.reshape(
+            self._counterfactuals_reward_predictions,
+            [-1, self.messages_num_outputs])
         predicted_rewards = prev_actions[:, -1]
         actual_rewards = prev_rewards
-        confusion_levels = tf.math.divide(tf.math.abs(predicted_rewards - actual_rewards), actual_rewards,
-                                          name='actual_confusion_levels')
-
-        counterfactual_confusion_levels_preds = [
-            tf.math.divide(tf.math.abs(counterfactual_reward - actual_rewards), actual_rewards,
-                           name=f'hypothetical_confusion_levels_{i}') for i, counterfactual_reward in
-            enumerate(counterfactual_rewards)]
-        min_counterfactual_confusion_levels_preds = tf.reduce_min(tf.stack(counterfactual_confusion_levels_preds),
-                                                                  axis=0)
-        self._intrinsic_reward = -tf.norm(tf.abs(confusion_levels - min_counterfactual_confusion_levels_preds),
-                                          ord="euclidean")
+        agent_current_confusion_levels = tf.math.divide(
+            tf.math.abs(predicted_rewards - actual_rewards), actual_rewards,
+            name='actual_confusion_levels')
+        counterfactual_confusion_levels_preds = tf.math.divide(
+            tf.math.abs(tf.math.subtract(counterfactual_rewards,
+                                         tf.reshape(tf.concat([tf.expand_dims(actual_rewards, axis=0)] * counterfactual_rewards.shape[-1].value,
+                                                              axis=-1), [-1, counterfactual_rewards.shape[-1].value]))), actual_rewards,
+                        name=f'hypothetical_confusion_levels')
+        min_counterfactual_confusion_levels_preds = tf.math.reduce_min(counterfactual_confusion_levels_preds,
+                                                                       reduction_indices=[1])
+        self._intrinsic_reward = -tf.abs(
+            tf.math.subtract(agent_current_confusion_levels, min_counterfactual_confusion_levels_preds))
 
     @staticmethod
     def _reshaped_as_one_hot(raw_tensor, encoding_vector_length, name):
@@ -308,3 +323,6 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         """
         return self.actions_policy_model.get_initial_state() + self.messages_policy_model.get_initial_state() + \
                self.next_reward_prediction_model.get_initial_state()
+
+    def agent_prev_actions(self):
+        return self._agent_prev_actions

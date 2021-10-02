@@ -82,7 +82,7 @@ class CleanupEnv(MapEnvWithMessagesAndRewardPrediction):
                     self.river_points.append([row, col])
 
         self.color_map.update(CLEANUP_COLORS)
-        self.max_confusion_value = CONFUSION_UPPER_BOUND
+        self.max_reward_value = CONFUSION_UPPER_BOUND
 
 
     @property
@@ -94,7 +94,7 @@ class CleanupEnv(MapEnvWithMessagesAndRewardPrediction):
         return Tuple([
             DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
             DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
-            Box(low=0, high=self.max_confusion_value, shape=(1,), dtype=np.float32)
+            Box(low=-self.max_reward_value, high=self.max_reward_value, shape=(1,), dtype=np.float32)
         ])
 
     def custom_reset(self):
