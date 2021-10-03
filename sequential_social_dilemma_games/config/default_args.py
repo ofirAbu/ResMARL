@@ -10,7 +10,7 @@ def add_default_args(parser):
         "--env",
         type=str,
         default="cleanup",
-        help="Name of the environment to use. Can be switch, cleanup or harvest.",
+        help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg or harvest_msg.",
     )
     parser.add_argument(
         "--algorithm",
@@ -21,7 +21,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="messages",
+        default="baseline",
         help="Name of the model to use. Can be baseline, messages, moa, or scm",
     )
     parser.add_argument(

@@ -63,8 +63,7 @@ def actor_critic_loss(policy, model, dist_class, train_batch):
     )
 
     moa_loss = setup_moa_loss(logits, policy, train_batch)
-    message_loss = 0
-    policy.loss.total_loss += moa_loss.total_loss + message_loss
+    policy.loss.total_loss += moa_loss.total_loss
 
     # store this for future statistics
     policy.moa_loss = moa_loss.total_loss
@@ -105,7 +104,7 @@ def stats(policy, train_batch):
         "var_gnorm": tf.global_norm([x for x in policy.model.trainable_variables()]),
         "vf_loss": policy.loss.vf_loss,
         "cur_influence_reward_weight": tf.cast(
-            policy.cur_messages_reward_weight_tensor, tf.float32
+            policy.cur_influence_reward_weight_tensor, tf.float32
         ),
         SOCIAL_INFLUENCE_REWARD: train_batch[SOCIAL_INFLUENCE_REWARD],
         EXTRINSIC_REWARD: train_batch[EXTRINSIC_REWARD],

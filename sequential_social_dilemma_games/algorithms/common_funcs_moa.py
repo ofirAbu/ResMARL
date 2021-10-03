@@ -15,9 +15,6 @@ VISIBILITY = "others_visibility"
 VISIBILITY_MATRIX = "visibility_matrix"
 SOCIAL_INFLUENCE_REWARD = "social_influence_reward"
 EXTRINSIC_REWARD = "extrinsic_reward"
-PREDICTED_CONFUSION = "predicted_confusion"
-OTHERS_CONFUSION = "others_confusion"
-SELF_CONFUSION = "self_confusion"
 
 # Frozen logits of the policy that computed the action
 ACTION_LOGITS = "action_logits"
@@ -30,8 +27,8 @@ class InfluenceScheduleMixIn(object):
         config = config["model"]["custom_options"]
         self.baseline_influence_reward_weight = config["influence_reward_weight"]
         if any(
-                config[key] is None
-                for key in ["influence_reward_schedule_steps", "influence_reward_schedule_weights"]
+            config[key] is None
+            for key in ["influence_reward_schedule_steps", "influence_reward_schedule_weights"]
         ):
             self.compute_influence_reward_weight = lambda: self.baseline_influence_reward_weight
         self.influence_reward_schedule_steps = config["influence_reward_schedule_steps"]
@@ -67,7 +64,7 @@ class InfluenceScheduleMixIn(object):
 
 
 class MOALoss(object):
-    def __init__(self, pred_logits, true_actions, loss_weight=1.0, others_visibility=None, message="MOA CE loss"):
+    def __init__(self, pred_logits, true_actions, loss_weight=1.0, others_visibility=None):
         """Train MOA model with supervised cross entropy loss on a trajectory.
         The model is trying to predict others' actions at timestep t+1 given all
         actions at timestep t.
@@ -99,7 +96,7 @@ class MOALoss(object):
 
         # Flatten loss to one value for the entire batch
         self.total_loss = tf.reduce_mean(self.ce_per_entry) * loss_weight
-        tf.Print(self.total_loss, [self.total_loss], message=message)
+        tf.Print(self.total_loss, [self.total_loss], message="MOA CE loss")
 
 
 def setup_moa_loss(logits, policy, train_batch):
@@ -117,7 +114,7 @@ def setup_moa_loss(logits, policy, train_batch):
     moa_loss = MOALoss(
         moa_preds,
         true_actions,
-        loss_weight=policy.messages_loss_weight,
+        loss_weight=policy.moa_loss_weight,
         others_visibility=others_visibility,
     )
     return moa_loss
@@ -131,7 +128,7 @@ def moa_postprocess_trajectory(policy, sample_batch, other_agent_batches=None, e
 
 
 def weigh_and_add_influence_reward(policy, sample_batch):
-    cur_influence_reward_weight = policy.compute_messages_reward_weight()
+    cur_influence_reward_weight = policy.compute_influence_reward_weight()
     # Since the reward calculation is delayed by 1 step, sample_batch[SOCIAL_INFLUENCE_REWARD][0]
     # contains the reward for timestep -1, which does not exist. Hence we shift the array.
     # Then, pad with a 0-value at the end to make the influence rewards align with sample_batch.
@@ -144,26 +141,6 @@ def weigh_and_add_influence_reward(policy, sample_batch):
 
     # Add to trajectory
     sample_batch[SOCIAL_INFLUENCE_REWARD] = influence
-    sample_batch["extrinsic_reward"] = sample_batch["rewards"]
-    sample_batch["rewards"] = sample_batch["rewards"] + influence
-
-    return sample_batch
-
-
-def weigh_and_add_msg_reward(policy, sample_batch):
-    cur_msg_reward_weight = policy.compute_intrinsic_reward_weight()
-    # Since the reward calculation is delayed by 1 step, sample_batch[SOCIAL_INFLUENCE_REWARD][0]
-    # contains the reward for timestep -1, which does not exist. Hence we shift the array.
-    # Then, pad with a 0-value at the end to make the influence rewards align with sample_batch.
-    # This leaks some information about the episode end though.
-    influence = np.concatenate((sample_batch[MESSAGES_REWARD][1:], [0]))
-
-    # Clip and weigh influence reward
-    influence = np.clip(influence, -policy.influence_reward_clip, policy.influence_reward_clip)
-    influence = influence * cur_msg_reward_weight
-
-    # Add to trajectory
-    sample_batch[MESSAGES_REWARD] = influence
     sample_batch["extrinsic_reward"] = sample_batch["rewards"]
     sample_batch["rewards"] = sample_batch["rewards"] + influence
 
@@ -260,8 +237,8 @@ class MOAResetConfigMixin(object):
     def reset_policies(policies, new_config, session):
         custom_options = new_config["model"]["custom_options"]
         for policy in policies:
-            policy.messages_loss_weight.load(custom_options["moa_loss_weight"], session=session)
-            policy.compute_messages_reward_weight = lambda: custom_options[
+            policy.moa_loss_weight.load(custom_options["moa_loss_weight"], session=session)
+            policy.compute_influence_reward_weight = lambda: custom_options[
                 "influence_reward_weight"
             ]
 

@@ -1,5 +1,5 @@
-from social_dilemmas.envs.cleanup import CleanupEnv
-from social_dilemmas.envs.harvest import HarvestEnv
+from social_dilemmas.envs.cleanup import CleanupEnv, CleanupEnvWithMessages
+from social_dilemmas.envs.harvest import HarvestEnv, HarvestEnvWithMessages
 from social_dilemmas.envs.switch import SwitchEnv
 
 
@@ -21,6 +21,26 @@ def get_env_creator(env, num_agents, args):
                 num_agents=num_agents,
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
+            )
+
+    if env == "harvest_msg":
+
+        def env_creator(_):
+            return HarvestEnvWithMessages(
+                num_agents=num_agents,
+                return_agent_actions=True,
+                use_collective_reward=args.use_collective_reward,
+                use_messages_attribute=True,
+            )
+
+    elif env == "cleanup_msg":
+
+        def env_creator(_):
+            return CleanupEnvWithMessages(
+                num_agents=num_agents,
+                return_agent_actions=True,
+                use_collective_reward=args.use_collective_reward,
+                use_messages_attribute=True,
             )
 
     elif env == "switch":
