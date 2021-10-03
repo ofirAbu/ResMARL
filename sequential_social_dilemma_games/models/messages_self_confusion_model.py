@@ -266,24 +266,24 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
             [-1, self.messages_num_outputs])
         predicted_rewards = prev_actions[:, -1]
         actual_rewards = prev_rewards
-        # agent_current_confusion_levels = tf.math.divide(
-        #     tf.math.abs(predicted_rewards - actual_rewards), actual_rewards,
-        #     name='actual_confusion_levels')
+        agent_current_confusion_levels = tf.math.divide(
+            tf.math.abs(predicted_rewards - actual_rewards), tf.math.abs(actual_rewards) + EPSILON_CONSTANT,
+            name='actual_confusion_levels')
 
-        agent_current_confusion_levels = tf.math.abs(predicted_rewards - actual_rewards, name='actual_confusion_levels')
+        # agent_current_confusion_levels = tf.math.abs(predicted_rewards - actual_rewards, name='actual_confusion_levels')
 
         expanded_actual_rewards_for_counterfactuals = tf.reshape(
             tf.concat([tf.expand_dims(actual_rewards, axis=0)] * counterfactual_rewards.shape[-1].value,
                       axis=-1), [-1, counterfactual_rewards.shape[-1].value])
-        # counterfactual_confusion_levels_preds = tf.math.divide(
-        #     tf.math.abs(tf.math.subtract(counterfactual_rewards,
-        #                                  expanded_actual_rewards_for_counterfactuals)),
-        #     expanded_actual_rewards_for_counterfactuals + EPSILON_CONSTANT,
-        #     name=f'hypothetical_confusion_levels')
+        counterfactual_confusion_levels_preds = tf.math.divide(
+            tf.math.abs(tf.math.subtract(counterfactual_rewards,
+                                         expanded_actual_rewards_for_counterfactuals)),
+            tf.math.abs(expanded_actual_rewards_for_counterfactuals) + EPSILON_CONSTANT,
+            name=f'hypothetical_confusion_levels')
 
-        counterfactual_confusion_levels_preds = tf.math.abs(tf.math.subtract(counterfactual_rewards,
-                                                                             expanded_actual_rewards_for_counterfactuals),
-                                                            name=f'hypothetical_confusion_levels')
+        # counterfactual_confusion_levels_preds = tf.math.abs(tf.math.subtract(counterfactual_rewards,
+        #                                                                      expanded_actual_rewards_for_counterfactuals),
+        #                                                     name=f'hypothetical_confusion_levels')
         min_counterfactual_confusion_levels_preds = tf.math.reduce_min(counterfactual_confusion_levels_preds,
                                                                        axis=-1)
         self._intrinsic_reward = -tf.abs(
