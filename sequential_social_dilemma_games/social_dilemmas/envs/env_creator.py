@@ -4,6 +4,7 @@ from social_dilemmas.envs.switch import SwitchEnv
 
 
 def get_env_creator(env, num_agents, args):
+    # TODO add here envs with messages and confusion classes
     if env == "harvest":
 
         def env_creator(_):
