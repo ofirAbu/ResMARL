@@ -383,7 +383,7 @@ def run(args, experiments):
         queue_trials=args.use_s3,
         resume=args.resume,
         scheduler=scheduler,
-        reuse_actors=args.tune_hparams,
+        reuse_actors=True  # args.tune_hparams,
     )
 
 

@@ -4,7 +4,7 @@ from ray.rllib.policy.rnn_sequencing import add_time_dimension
 from ray.rllib.utils import try_import_tf
 from ray.rllib.utils.annotations import override
 
-from config.constants import CONFUSION_UPPER_BOUND
+from config.constants import CONFUSION_UPPER_BOUND, EPSILON_CONSTANT
 from models.actor_critic_lstm import ActorCriticLSTM
 from models.common_layers import build_conv_layers, build_fc_layers
 from models.next_reward_lstm import NextRewardLSTM
@@ -29,6 +29,15 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
         self._intrinsic_reward = None
         self._counterfactuals_reward_predictions = None
         self._next_reward_pred = None
+
+        self._actions_model_out = None
+        self._actions_value_out = None
+        self._value_out = None
+        self._messages_model_out = None
+        self._model_out = None
+        self._messages_value_out = None
+        self._true_one_hot_messages = None
+        self._agent_prev_actions = None
 
         self.obs_space = obs_space
         self.num_outputs = num_outputs
@@ -257,20 +266,26 @@ class MessagesWithSelfConfusionModel(RecurrentTFModelV2):
             [-1, self.messages_num_outputs])
         predicted_rewards = prev_actions[:, -1]
         actual_rewards = prev_rewards
-        agent_current_confusion_levels = tf.math.divide(
-            tf.math.abs(predicted_rewards - actual_rewards), actual_rewards,
-            name='actual_confusion_levels')
+        # agent_current_confusion_levels = tf.math.divide(
+        #     tf.math.abs(predicted_rewards - actual_rewards), actual_rewards,
+        #     name='actual_confusion_levels')
+
+        agent_current_confusion_levels = tf.math.abs(predicted_rewards - actual_rewards, name='actual_confusion_levels')
 
         expanded_actual_rewards_for_counterfactuals = tf.reshape(
             tf.concat([tf.expand_dims(actual_rewards, axis=0)] * counterfactual_rewards.shape[-1].value,
                       axis=-1), [-1, counterfactual_rewards.shape[-1].value])
-        counterfactual_confusion_levels_preds = tf.math.divide(
-            tf.math.abs(tf.math.subtract(counterfactual_rewards,
-                                         expanded_actual_rewards_for_counterfactuals)),
-            expanded_actual_rewards_for_counterfactuals,
-            name=f'hypothetical_confusion_levels')
+        # counterfactual_confusion_levels_preds = tf.math.divide(
+        #     tf.math.abs(tf.math.subtract(counterfactual_rewards,
+        #                                  expanded_actual_rewards_for_counterfactuals)),
+        #     expanded_actual_rewards_for_counterfactuals + EPSILON_CONSTANT,
+        #     name=f'hypothetical_confusion_levels')
+
+        counterfactual_confusion_levels_preds = tf.math.abs(tf.math.subtract(counterfactual_rewards,
+                                                                             expanded_actual_rewards_for_counterfactuals),
+                                                            name=f'hypothetical_confusion_levels')
         min_counterfactual_confusion_levels_preds = tf.math.reduce_min(counterfactual_confusion_levels_preds,
-                                                                       reduction_indices=[1])
+                                                                       axis=-1)
         self._intrinsic_reward = -tf.abs(
             tf.math.subtract(agent_current_confusion_levels, min_counterfactual_confusion_levels_preds))
 

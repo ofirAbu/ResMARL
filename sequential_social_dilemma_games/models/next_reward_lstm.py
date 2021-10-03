@@ -72,6 +72,7 @@ class NextRewardLSTM(RecurrentTFModelV2):
         rnn_input.insert(1, input_dict["one_hot_total_messages"])
         rnn_input.insert(2, input_dict["values_predicted"])
         model_out, h, c = self.rnn_model(rnn_input)
+        model_out = tf.clip_by_value(model_out, clip_value_min=0, clip_value_max=2)
         return model_out, h, c
 
     @override(ModelV2)
