@@ -1,8 +1,6 @@
-#!/bin/csh
-module load cuda
-module load cudnn
-source /cs/labs/jeff/ofir.abu/venvs/res_marl_3.7/bin/activate.csh
+#!/bin/bash
+workspace="/cs/labs/jeff/ofir.abu"
 
-cd /cs/labs/jeff/ofir.abu/ResMARL/sequential_social_dilemma_games/run_scripts
+cd $workspace/ResMARL/sequential_social_dilemma_games/run_scripts/
 python train.py
 deactivate
