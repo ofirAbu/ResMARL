@@ -285,7 +285,8 @@ def get_env_and_model_name_from_path(path):
         else:
             model_name = "SCM"
     else:
-        raise NotImplementedError
+        # raise NotImplementedError
+        model_name = "example_model_name"
     env = category_path.split("_")[0]
     return env, model_name
 
