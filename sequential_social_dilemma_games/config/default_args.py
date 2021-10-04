@@ -9,7 +9,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--env",
         type=str,
-        default="cleanup",
+        default="cleanup_msg",
         help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg or harvest_msg.",
     )
     parser.add_argument(
@@ -21,7 +21,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="baseline",
+        default="messages",
         help="Name of the model to use. Can be baseline, messages, moa, or scm",
     )
     parser.add_argument(
@@ -79,7 +79,7 @@ def add_default_args(parser):
         "--cpus_for_driver", type=int, default=0, help="Number of CPUs used by the driver"
     )
     parser.add_argument(
-        "--gpus_for_driver", type=float, default=0, help="Number of GPUs used by the driver"
+        "--gpus_for_driver", type=float, default=2, help="Number of GPUs used by the driver"
     )
     parser.add_argument(
         "--cpus_per_worker", type=int, default=1, help="Number of CPUs used by one worker"
