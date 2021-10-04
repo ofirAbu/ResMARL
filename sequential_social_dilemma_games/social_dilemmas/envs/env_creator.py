@@ -1,5 +1,5 @@
 from social_dilemmas.envs.cleanup import CleanupEnv, CleanupEnvWithMessagesSelf, CleanupEnvWithMessagesGlobal
-from social_dilemmas.envs.harvest import HarvestEnv, HarvestEnvWithMessagesSelf
+from social_dilemmas.envs.harvest import HarvestEnv, HarvestEnvWithMessagesSelf, HarvestEnvWithMessagesGlobal
 from social_dilemmas.envs.switch import SwitchEnv
 
 
@@ -14,16 +14,7 @@ def get_env_creator(env, num_agents, args):
                 use_collective_reward=args.use_collective_reward,
             )
 
-    elif env == "cleanup":
-
-        def env_creator(_):
-            return CleanupEnv(
-                num_agents=num_agents,
-                return_agent_actions=True,
-                use_collective_reward=args.use_collective_reward,
-            )
-
-    if env == "harvest_msg_self":
+    elif env == "harvest_msg_self":
 
         def env_creator(_):
             return HarvestEnvWithMessagesSelf(
@@ -31,6 +22,25 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
+            )
+
+    elif env == "harvest_msg_global":
+
+        def env_creator(_):
+            return HarvestEnvWithMessagesGlobal(
+                num_agents=num_agents,
+                return_agent_actions=True,
+                use_collective_reward=args.use_collective_reward,
+                use_messages_attribute=True,
+            )
+
+    elif env == "cleanup":
+
+        def env_creator(_):
+            return CleanupEnv(
+                num_agents=num_agents,
+                return_agent_actions=True,
+                use_collective_reward=args.use_collective_reward,
             )
 
     elif env == "cleanup_msg_self":

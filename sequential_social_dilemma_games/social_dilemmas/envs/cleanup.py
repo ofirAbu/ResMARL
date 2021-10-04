@@ -209,7 +209,7 @@ class CleanupEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewardPrediction):
         return free_area
 
 
-# clenup with self conf properties
+# cleanup with self conf properties
 
 class CleanupEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
     def __init__(
