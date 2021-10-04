@@ -14,7 +14,8 @@ from ray.tune.registry import register_env
 from ray.tune.schedulers import PopulationBasedTraining
 
 from algorithms.a3c_baseline import build_a3c_baseline_trainer
-from algorithms.a3c_messages import build_a3c_messages_trainer
+from algorithms.a3c_messages_global_confusion import build_a3c_global_confusion_messages_trainer
+from algorithms.a3c_messages_self_confusion import build_a3c_self_confusion_messages_trainer
 from algorithms.a3c_moa import build_a3c_moa_trainer
 from algorithms.impala_baseline import build_impala_baseline_trainer
 from algorithms.impala_moa import build_impala_moa_trainer
@@ -23,6 +24,7 @@ from algorithms.ppo_moa import build_ppo_moa_trainer
 from algorithms.ppo_scm import build_ppo_scm_trainer
 from config.default_args import add_default_args
 from models.baseline_model import BaselineModel
+from models.messages_global_confusion_model import MessagesWithGlobalConfusionModel
 from models.messages_self_confusion_model import MessagesWithSelfConfusionModel
 from models.moa_model import MOAModel
 from models.scm_model import SocialCuriosityModule
@@ -54,8 +56,11 @@ def build_experiment_config_dict(args):
         ModelCatalog.register_custom_model(model_name, MOAModel)
     elif args.model == "baseline":
         ModelCatalog.register_custom_model(model_name, BaselineModel)
-    elif args.model == "messages":
+    elif args.model == "self_confusion":
         ModelCatalog.register_custom_model(model_name, MessagesWithSelfConfusionModel)
+    elif args.model == "global_confusion":
+        ModelCatalog.register_custom_model(model_name, MessagesWithGlobalConfusionModel)
+
 
     # Each policy can have a different configuration (including custom model)
     def gen_policy():
@@ -194,9 +199,16 @@ def get_trainer(args, config):
             trainer = build_ppo_baseline_trainer(config)
         if args.algorithm == "IMPALA":
             trainer = build_impala_baseline_trainer(config)
-    elif args.model == "messages":
+    elif args.model == "self_confusion":
         if args.algorithm == "A3C":
-            trainer = build_a3c_messages_trainer(config)
+            trainer = build_a3c_self_confusion_messages_trainer(config)
+        if args.algorithm == "PPO":
+            trainer = build_ppo_baseline_trainer(config)
+        if args.algorithm == "IMPALA":
+            trainer = build_impala_baseline_trainer(config)
+    elif args.model == "global_confusion":
+        if args.algorithm == "A3C":
+            trainer = build_a3c_global_confusion_messages_trainer(config)
         if args.algorithm == "PPO":
             trainer = build_ppo_baseline_trainer(config)
         if args.algorithm == "IMPALA":
@@ -329,7 +341,12 @@ def create_hparam_tune_dict(model, is_config=False):
             "entropy_coeff": wrapper(random.expovariate(1000)),
             "lr": wrapper(random.uniform(0.00001, 0.01)),
         }
-    if model == "messages":
+    if model == "self_confusion":
+        baseline_options = {
+            "entropy_coeff": wrapper(random.expovariate(1000)),
+            "lr": wrapper(random.uniform(0.00001, 0.01)),
+        }
+    if model == "global_confusion":
         baseline_options = {
             "entropy_coeff": wrapper(random.expovariate(1000)),
             "lr": wrapper(random.uniform(0.00001, 0.01)),

@@ -2,11 +2,11 @@ import numpy as np
 from gym.spaces import Tuple, Box
 from numpy.random import rand
 
-from config.constants import HARVEST_BASE_ACTION_SPACE_SIZE, CONFUSION_UPPER_BOUND
+from config.constants import HARVEST_BASE_ACTION_SPACE_SIZE, REWARD_UPPER_BOUND
 from social_dilemmas.envs.agent import HarvestAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 from social_dilemmas.envs.map_env import MapEnv
-from social_dilemmas.envs.map_env_with_messages_confusion import MapEnvWithMessagesAndRewardPrediction
+from social_dilemmas.envs.map_env_with_messages_self_confusion import MapEnvWithMessagesAndSelfRewardPrediction
 from social_dilemmas.maps import HARVEST_MAP
 
 APPLE_RADIUS = 2
@@ -19,7 +19,7 @@ SPAWN_PROB = [0, 0.005, 0.02, 0.05]
 HARVEST_VIEW_SIZE = 7
 
 
-class HarvestEnvWithMessages(MapEnvWithMessagesAndRewardPrediction):
+class HarvestEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
     def __init__(
             self,
             ascii_map=HARVEST_MAP,
@@ -43,7 +43,7 @@ class HarvestEnvWithMessages(MapEnvWithMessagesAndRewardPrediction):
                 if self.base_map[row, col] == b"A":
                     self.apple_points.append([row, col])
 
-        self.max_reward_value = CONFUSION_UPPER_BOUND
+        self.max_reward_value = REWARD_UPPER_BOUND
 
     @property
     def action_space(self):

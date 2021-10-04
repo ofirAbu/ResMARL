@@ -4,13 +4,14 @@ def add_default_args(parser):
         type=str,
         default=None,
         help="Name experiment will be stored under. When left empty, the name is formatted as:"
-        "env_model_algorithm",
+             "env_model_algorithm",
     )
     parser.add_argument(
         "--env",
         type=str,
-        default="cleanup_msg",
-        help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg or harvest_msg.",
+        default="cleanup_msg_global",
+        help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg_self, cleanup_msg_global, "
+             "harvest_msg_self or harvest_msg_global.",
     )
     parser.add_argument(
         "--algorithm",
@@ -21,8 +22,8 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="messages",
-        help="Name of the model to use. Can be baseline, messages, moa, or scm",
+        default="global_confusion",
+        help="Name of the model to use. Can be baseline, self_confusion, global_confusion, moa, or scm",
     )
     parser.add_argument(
         "--resume", action="store_true", default=False, help="Resume previous experiment.",
@@ -33,14 +34,14 @@ def add_default_args(parser):
         type=int,
         default=1000,
         help="Size of samples taken from single workers. These are concatenated with samples of"
-        "other workers to size train_batch_size.",
+             "other workers to size train_batch_size.",
     )
     parser.add_argument(
         "--train_batch_size",
         type=int,
         default=None,
         help="Size of the total dataset over which one epoch is computed. If not specified,"
-        "defaults to num_workers * num_envs_per_worker * rollout_fragment_length",
+             "defaults to num_workers * num_envs_per_worker * rollout_fragment_length",
     )
     parser.add_argument(
         "--checkpoint_frequency",
@@ -79,7 +80,7 @@ def add_default_args(parser):
         "--cpus_for_driver", type=int, default=0, help="Number of CPUs used by the driver"
     )
     parser.add_argument(
-        "--gpus_for_driver", type=float, default=2, help="Number of GPUs used by the driver"
+        "--gpus_for_driver", type=float, default=0, help="Number of GPUs used by the driver"
     )
     parser.add_argument(
         "--cpus_per_worker", type=int, default=1, help="Number of CPUs used by one worker"
@@ -141,7 +142,7 @@ def add_default_args(parser):
         type=int,
         default=None,
         help="Amounts of environment steps at which the learning rate has a value specified in"
-        "--lr_schedule_weights",
+             "--lr_schedule_weights",
     )
     parser.add_argument(
         "--lr_schedule_weights",
@@ -149,7 +150,7 @@ def add_default_args(parser):
         type=float,
         default=None,
         help="Values for the learning rate schedule. Linearly interpolates using "
-        "--lr_schedule_steps",
+             "--lr_schedule_steps",
     )
 
     parser.add_argument("--entropy_coeff", type=float, default=0.001, help="Entropy reward weight.")
@@ -175,7 +176,7 @@ def add_default_args(parser):
         type=int,
         default=None,
         help="Amounts of environment steps at which the moa reward has a value specified in"
-        "--influence_reward_schedule_weights",
+             "--influence_reward_schedule_weights",
     )
     parser.add_argument(
         "--influence_reward_schedule_weights",
@@ -183,8 +184,8 @@ def add_default_args(parser):
         type=float,
         default=None,
         help="Values for the moa reward schedule. Linearly interpolates using "
-        "--influence_reward_schedule_steps. The final value is"
-        " --influence_reward_weight * interpolated_value",
+             "--influence_reward_schedule_steps. The final value is"
+             " --influence_reward_weight * interpolated_value",
     )
 
     # MESSAGES parameters
@@ -223,7 +224,7 @@ def add_default_args(parser):
         type=int,
         default=None,
         help="Amounts of environment steps at which the scm reward has a value specified in"
-        "--curiosity_reward_schedule_weights",
+             "--curiosity_reward_schedule_weights",
     )
     parser.add_argument(
         "--curiosity_reward_schedule_weights",
@@ -231,8 +232,8 @@ def add_default_args(parser):
         type=float,
         default=None,
         help="Values for the scm reward schedule. Linearly interpolates using "
-        "--curiosity_reward_schedule_steps. The final value is"
-        " --curiosity_reward_weight * interpolated_value",
+             "--curiosity_reward_schedule_steps. The final value is"
+             " --curiosity_reward_weight * interpolated_value",
     )
 
     parser.add_argument(
@@ -240,8 +241,8 @@ def add_default_args(parser):
         type=float,
         default=0.2,
         help="This weight balances forward and inverse loss weights in the following way:"
-        "weight * forward_loss + (1 - weight) * inverse_loss"
-        "Must be in the range [0, 1].",
+             "weight * forward_loss + (1 - weight) * inverse_loss"
+             "Must be in the range [0, 1].",
     )
 
     # PPO parameters
@@ -250,10 +251,11 @@ def add_default_args(parser):
         type=int,
         default=None,
         help="Minibatch size for the stochastic gradient descent step in the PPO algorithm. If not"
-        "specified, defaults to --train_batch_size / 2",
+             "specified, defaults to --train_batch_size / 2",
     )
 
     # Env-specific parameters
     parser.add_argument(
         "--num_switches", type=int, default=6, help="Amount of switches in a switch map environment",
     )
+

@@ -4,7 +4,7 @@ from gym.spaces import Box, Dict
 from social_dilemmas.envs.map_env import MapEnv
 
 
-class MapEnvWithMessagesAndRewardPrediction(MapEnv):
+class MapEnvWithMessagesAndSelfRewardPrediction(MapEnv):
     def __init__(
             self,
             ascii_map,

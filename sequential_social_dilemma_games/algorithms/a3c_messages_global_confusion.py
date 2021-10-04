@@ -13,8 +13,10 @@ from ray.rllib.utils import try_import_tf
 from ray.rllib.utils.explained_variance import explained_variance
 from ray.rllib.utils.tf_ops import make_tf_callable
 
-from algorithms.common_funcs_messages import msg_postprocess_trajectory, setup_next_reward_prediction_loss, \
-    messages_fetches, MESSAGES_REWARD, setup_messages_mixins, get_messages_mixins
+from algorithms.common_funcs_messages_global_confusion import msg_postprocess_trajectory, \
+    setup_next_reward_prediction_loss, \
+    messages_fetches, MESSAGES_REWARD, setup_messages_mixins, get_messages_mixins, \
+    setup_global_next_reward_prediction_loss
 from algorithms.common_funcs_moa import (
     EXTRINSIC_REWARD
 )
@@ -58,11 +60,14 @@ def msg_actor_critic_loss(policy, model, dist_class, train_batch):
         policy.config["entropy_coeff"],
     )
 
-    next_reward_loss = setup_next_reward_prediction_loss(logits, policy, train_batch)
-    policy.loss.total_loss += next_reward_loss.total_loss
+    self_next_reward_loss = setup_next_reward_prediction_loss(logits, policy, train_batch)
+    global_next_reward_loss = setup_global_next_reward_prediction_loss(logits, policy, train_batch)
+    policy.loss.total_loss += self_next_reward_loss.total_loss
+    policy.loss.total_loss += global_next_reward_loss.total_loss
 
     # store this for future statistics
-    policy.next_reward_loss = next_reward_loss.total_loss
+    policy.next_reward_loss = self_next_reward_loss.total_loss
+    policy.global_reward_loss = global_next_reward_loss
 
     return policy.loss.total_loss
 
@@ -132,9 +137,9 @@ def setup_mixins(policy, obs_space, action_space, config):
     setup_messages_mixins(policy, obs_space, action_space, config)
 
 
-def build_a3c_messages_trainer(msg_config):
+def build_a3c_global_confusion_messages_trainer(msg_config):
     tf.keras.backend.set_floatx("float32")
-    trainer_name = "MessagesA3CTrainer"
+    trainer_name = "GlobalConfusionMessagesA3CTrainer"
     msg_config["use_gae"] = False
 
     a3c_tf_policy = build_tf_policy(
