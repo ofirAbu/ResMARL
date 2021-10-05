@@ -3,7 +3,7 @@
 #SBATCH -c12
 #SBATCH --time=72:0:0
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH -o global_conf_cleanup_log.out
+#SBATCH -o base_cleanup_log.out
 #SBATCH --gres=gpu:3,vmem:16g
 #SBATCH --killable
 #SBATCH --requeue
