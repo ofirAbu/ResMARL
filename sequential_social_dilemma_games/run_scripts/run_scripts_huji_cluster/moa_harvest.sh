@@ -14,7 +14,7 @@ cd $workspace/ResMARL/sequential_social_dilemma_games/run_scripts/
 python train.py \
 --env harvest \
 --model moa \
---algorithm PPO \
+--algorithm A3C \
 --num_agents 4 \
 --num_workers 6 \
 --rollout_fragment_length 1000 \
