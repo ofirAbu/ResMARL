@@ -9,20 +9,20 @@ def add_default_args(parser):
     parser.add_argument(
         "--env",
         type=str,
-        default="cleanup",
+        default="cleanup_msg_global",
         help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg_self, cleanup_msg_global, "
              "harvest_msg_self or harvest_msg_global.",
     )
     parser.add_argument(
         "--algorithm",
         type=str,
-        default="PPO",
+        default="A3C",
         help="Name of the rllib algorithm to use. Can be A3C or PPO.",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="baseline",
+        default="global_confusion",
         help="Name of the model to use. Can be baseline, self_confusion, global_confusion, moa, or scm",
     )
     parser.add_argument(
@@ -258,4 +258,3 @@ def add_default_args(parser):
     parser.add_argument(
         "--num_switches", type=int, default=6, help="Amount of switches in a switch map environment",
     )
-

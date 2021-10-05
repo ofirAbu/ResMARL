@@ -3,7 +3,7 @@
 #SBATCH -c12
 #SBATCH --time=72:0:0
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH -o base_harvest_log.out
+#SBATCH -o base_harvest_a3c_log.out
 #SBATCH --gres=gpu:1,vmem:16g
 #SBATCH --killable
 #SBATCH --requeue
@@ -19,7 +19,7 @@ cd $workspace/ResMARL/sequential_social_dilemma_games/run_scripts
 python train.py \
 --env harvest \
 --model baseline \
---algorithm PPO \
+--algorithm A3C \
 --num_agents 4 \
 --num_workers 3 \
 --rollout_fragment_length 1000 \

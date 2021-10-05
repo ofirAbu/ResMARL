@@ -290,7 +290,7 @@ class MessagesWithGlobalConfusionModel(RecurrentTFModelV2):
         prev_general_rewards = tf.cast(input_dict["obs"]["other_agent_actual_rewards"], tf.float32)
         counterfactual_general_rewards = tf.cast(tf.reshape(
             self._counterfactuals_general_reward_predictions,
-            [-1, self.messages_num_outputs]), tf.float32)
+            [-1, self.num_other_agents, self.messages_num_outputs]), tf.float32)
         predicted_general_rewards = tf.cast(input_dict["obs"]["other_agent_predicted_rewards"], tf.float32)
         actual_general_rewards = prev_general_rewards
         general_current_confusion_level = tf.math.divide(
