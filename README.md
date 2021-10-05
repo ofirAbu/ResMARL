@@ -11,6 +11,10 @@ Specific additions, we are experimenting with:
 simply running train.py will run with 2 communicating agents on the cleanup environment.
 check default_args.py for changing the running parameters for train.py.
 
-example for execution command:
-srun --mem=20g -c12 --time=1:0:0 --gres=gpu:3,vmem:16g --killable example_run_train_py.sh
+###Execution Commands Examples
+####SRUN
+<code>srun --mem=20g -c12 --time=1:0:0 --gres=gpu:3,vmem:16g --killable example_srun_train_py.sh</code>
+
+####SBATCH
+<code>sbatch example_sbatch_train_py.sh</code>
 
