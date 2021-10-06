@@ -69,6 +69,14 @@ class HarvestPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
             Box(low=-self.max_reward_value, high=self.max_reward_value, shape=(1,), dtype=np.float32)
         ])
 
+    def step(self, actions):
+        self.time_step_in_instance += 1
+        return super().step(actions)
+
+    def reset(self):
+        self.time_step_in_instance = 0
+        return super().reset()
+
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()
 
@@ -247,6 +255,14 @@ class HarvestPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPre
             Box(low=-self.max_reward_value, high=self.max_reward_value, shape=(1,), dtype=np.float32)
         ])
 
+    def step(self, actions):
+        self.time_step_in_instance += 1
+        return super().step(actions)
+
+    def reset(self):
+        self.time_step_in_instance = 0
+        return super().reset()
+
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()
 
@@ -416,6 +432,14 @@ class HarvestPerturbationEnv(MapEnv):
     @property
     def action_space(self):
         return DiscreteWithDType(8, dtype=np.uint8)
+
+    def step(self, actions):
+        self.time_step_in_instance += 1
+        return super().step(actions)
+
+    def reset(self):
+        self.time_step_in_instance = 0
+        return super().reset()
 
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()
