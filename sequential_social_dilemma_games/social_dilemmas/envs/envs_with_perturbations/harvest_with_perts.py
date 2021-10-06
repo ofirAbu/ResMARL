@@ -57,8 +57,6 @@ class HarvestPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
         self.perturbations_magnitude = perturbation_magnitude
         self.perturbations_magnitude_relative_to_max = (self.perturbations_magnitude / MAX_PERTURBATION_MAGNITUDE)
         self.time_step_in_instance = 0
-        self.number_of_walls_rows_axis = self.perturbations_magnitude_relative_to_max * self.base_map.shape[0]
-        self.number_of_walls_cols_axis = self.perturbations_magnitude_relative_to_max * self.base_map.shape[-1]
         self.previously_added_walls = []
 
     @property
@@ -243,8 +241,6 @@ class HarvestPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPre
         self.perturbations_magnitude = perturbation_magnitude
         self.perturbations_magnitude_relative_to_max = (self.perturbations_magnitude / MAX_PERTURBATION_MAGNITUDE)
         self.time_step_in_instance = 0
-        self.number_of_walls_rows_axis = self.perturbations_magnitude_relative_to_max * self.base_map.shape[0]
-        self.number_of_walls_cols_axis = self.perturbations_magnitude_relative_to_max * self.base_map.shape[-1]
         self.previously_added_walls = []
 
     @property
@@ -425,8 +421,6 @@ class HarvestPerturbationEnv(MapEnv):
         self.perturbations_magnitude = perturbation_magnitude
         self.perturbations_magnitude_relative_to_max = (self.perturbations_magnitude / MAX_PERTURBATION_MAGNITUDE)
         self.time_step_in_instance = 0
-        self.number_of_walls_rows_axis = self.perturbations_magnitude_relative_to_max * self.base_map.shape[0]
-        self.number_of_walls_cols_axis = self.perturbations_magnitude_relative_to_max * self.base_map.shape[-1]
         self.previously_added_walls = []
 
     @property

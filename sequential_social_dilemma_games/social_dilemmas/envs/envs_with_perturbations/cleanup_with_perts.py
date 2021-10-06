@@ -4,8 +4,8 @@ import numpy as np
 from gym.spaces import Tuple, Box
 from numpy.random import rand
 
-from config.constants import CLEANUP_BASE_ACTION_SPACE_SIZE, REWARD_UPPER_BOUND, HARVEST_PERIODIC_PERT_FREQUENCY, \
-    MAX_PERTURBATION_MAGNITUDE
+from config.constants import CLEANUP_BASE_ACTION_SPACE_SIZE, REWARD_UPPER_BOUND, CLEANUP_PERIODIC_PERT_FREQUENCY, \
+    MAX_PERTURBATION_MAGNITUDE, MAX_PERCENT_OF_WALLS_ALLOWED
 from social_dilemmas.envs.agent import CleanupAgent
 from social_dilemmas.envs.gym.discrete_with_dtype import DiscreteWithDType
 from social_dilemmas.envs.map_env import MapEnv
@@ -34,14 +34,17 @@ wasteSpawnProbability = 0.5
 appleRespawnProbability = 0.05
 
 
-class CleanupPerturbations_50_EnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewardPrediction):
+# cleanup with global confusion and perturbations
+
+class CleanupPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewardPrediction):
     def __init__(
             self,
             ascii_map=CLEANUP_MAP,
             num_agents=1,
             return_agent_actions=True,
             use_collective_reward=False,
-            use_messages_attribute=True
+            use_messages_attribute=True,
+            perturbation_magnitude=50,
     ):
         super().__init__(
             ascii_map,
@@ -85,8 +88,12 @@ class CleanupPerturbations_50_EnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalR
         self.color_map.update(CLEANUP_COLORS)
         self.max_reward_value = REWARD_UPPER_BOUND
 
-
-
+        # attributes for perturbations
+        self.perturbations_frequency = CLEANUP_PERIODIC_PERT_FREQUENCY
+        self.perturbations_magnitude = perturbation_magnitude
+        self.perturbations_magnitude_relative_to_max = (self.perturbations_magnitude / MAX_PERTURBATION_MAGNITUDE)
+        self.time_step_in_instance = 0
+        self.previously_added_walls = []
 
     @property
     def action_space(self):
@@ -99,6 +106,14 @@ class CleanupPerturbations_50_EnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalR
             DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
             Box(low=-self.max_reward_value, high=self.max_reward_value, shape=(1,), dtype=np.float32)
         ])
+
+    def step(self, actions):
+        self.time_step_in_instance += 1
+        return super().step(actions)
+
+    def reset(self):
+        self.time_step_in_instance = 0
+        return super().reset()
 
     def custom_reset(self):
         """Initialize the walls and the waste"""
@@ -137,7 +152,69 @@ class CleanupPerturbations_50_EnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalR
     def custom_map_update(self):
         """"Update the probabilities and then spawn"""
         self.compute_probabilities()
-        self.update_map(self.spawn_apples_and_waste())
+
+        # spawn the apples and waste
+        new_apples_and_waste = self.spawn_apples_and_waste()
+        removed_walls = []
+        new_walls = []
+        removed_apples = []
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            # apply walls and apples perturbations
+            # remove previously added walls
+            removed_walls = [(wall_row, wall_col, b' ') for wall_row, wall_col, _ in self.previously_added_walls]
+            # add new walls
+            new_walls = self.perturb_walls()
+            self.previously_added_walls = new_walls
+
+            # remove some of existing apples
+            removed_apples = self.perturb_existing_apples()
+            # reduce amount of new apples
+            new_apples_and_waste = self.perturb_spawned_apples(new_apples_and_waste)
+
+        updates_to_map = removed_walls + removed_apples + new_walls + new_apples_and_waste
+
+        self.update_map(updates_to_map)
+
+    def perturb_walls(self):
+        template_map = self.get_map_with_agents()
+        empty_spaces = []
+        for i in range(template_map.shape[0]):
+            for j in range(template_map.shape[-1]):
+                if template_map[i, j] == b' ':
+                    empty_spaces.append((i, j))
+
+        amount_of_walls_to_add = int(self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED * len(
+            empty_spaces))
+
+        new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
+        new_walls = [(row, col, b'@') for row, col in new_walls]
+
+        return new_walls
+
+    def perturb_existing_apples(self):
+        template_map = self.get_map_with_agents()
+        apples_coordinates = []
+        for i in range(template_map.shape[0]):
+            for j in range(template_map.shape[-1]):
+                if template_map[i, j] == b'A':
+                    apples_coordinates.append((i, j))
+
+        amount_of_apples_to_remove = int(
+            self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED * len(
+                apples_coordinates))
+
+        new_walls = random.sample(apples_coordinates, amount_of_apples_to_remove)
+        new_walls = [(row, col, b' ') for row, col in new_walls]
+
+        return new_walls
+
+    def perturb_spawned_apples(self, new_apples):
+        percentage_of_apples_to_keep = 1 - self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED
+        amount_of_apples_to_keep = int(percentage_of_apples_to_keep * len(new_apples))
+
+        new_apples = random.sample(new_apples, amount_of_apples_to_keep)
+
+        return new_apples
 
     def setup_agents(self):
         """Constructs all the agents in self.agent"""
@@ -212,16 +289,17 @@ class CleanupPerturbations_50_EnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalR
         return free_area
 
 
-# cleanup with self conf properties
+# cleanup with self conf properties and perturbations
 
-class CleanupEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
+class CleanupPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
     def __init__(
             self,
             ascii_map=CLEANUP_MAP,
             num_agents=1,
             return_agent_actions=True,
             use_collective_reward=False,
-            use_messages_attribute=True
+            use_messages_attribute=True,
+            perturbation_magnitude=50,
     ):
         super().__init__(
             ascii_map,
@@ -265,6 +343,12 @@ class CleanupEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
         self.color_map.update(CLEANUP_COLORS)
         self.max_reward_value = REWARD_UPPER_BOUND
 
+        # attributes for perturbations
+        self.perturbations_frequency = CLEANUP_PERIODIC_PERT_FREQUENCY
+        self.perturbations_magnitude = perturbation_magnitude
+        self.perturbations_magnitude_relative_to_max = (self.perturbations_magnitude / MAX_PERTURBATION_MAGNITUDE)
+        self.time_step_in_instance = 0
+        self.previously_added_walls = []
 
     @property
     def action_space(self):
@@ -277,6 +361,14 @@ class CleanupEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
             DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
             Box(low=-self.max_reward_value, high=self.max_reward_value, shape=(1,), dtype=np.float32)
         ])
+
+    def step(self, actions):
+        self.time_step_in_instance += 1
+        return super().step(actions)
+
+    def reset(self):
+        self.time_step_in_instance = 0
+        return super().reset()
 
     def custom_reset(self):
         """Initialize the walls and the waste"""
@@ -315,7 +407,69 @@ class CleanupEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
     def custom_map_update(self):
         """"Update the probabilities and then spawn"""
         self.compute_probabilities()
-        self.update_map(self.spawn_apples_and_waste())
+
+        # spawn the apples and waste
+        new_apples_and_waste = self.spawn_apples_and_waste()
+        removed_walls = []
+        new_walls = []
+        removed_apples = []
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            # apply walls and apples perturbations
+            # remove previously added walls
+            removed_walls = [(wall_row, wall_col, b' ') for wall_row, wall_col, _ in self.previously_added_walls]
+            # add new walls
+            new_walls = self.perturb_walls()
+            self.previously_added_walls = new_walls
+
+            # remove some of existing apples
+            removed_apples = self.perturb_existing_apples()
+            # reduce amount of new apples
+            new_apples_and_waste = self.perturb_spawned_apples(new_apples_and_waste)
+
+        updates_to_map = removed_walls + removed_apples + new_walls + new_apples_and_waste
+
+        self.update_map(updates_to_map)
+
+    def perturb_walls(self):
+        template_map = self.get_map_with_agents()
+        empty_spaces = []
+        for i in range(template_map.shape[0]):
+            for j in range(template_map.shape[-1]):
+                if template_map[i, j] == b' ':
+                    empty_spaces.append((i, j))
+
+        amount_of_walls_to_add = int(self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED * len(
+            empty_spaces))
+
+        new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
+        new_walls = [(row, col, b'@') for row, col in new_walls]
+
+        return new_walls
+
+    def perturb_existing_apples(self):
+        template_map = self.get_map_with_agents()
+        apples_coordinates = []
+        for i in range(template_map.shape[0]):
+            for j in range(template_map.shape[-1]):
+                if template_map[i, j] == b'A':
+                    apples_coordinates.append((i, j))
+
+        amount_of_apples_to_remove = int(
+            self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED * len(
+                apples_coordinates))
+
+        new_walls = random.sample(apples_coordinates, amount_of_apples_to_remove)
+        new_walls = [(row, col, b' ') for row, col in new_walls]
+
+        return new_walls
+
+    def perturb_spawned_apples(self, new_apples):
+        percentage_of_apples_to_keep = 1 - self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED
+        amount_of_apples_to_keep = int(percentage_of_apples_to_keep * len(new_apples))
+
+        new_apples = random.sample(new_apples, amount_of_apples_to_keep)
+
+        return new_apples
 
     def setup_agents(self):
         """Constructs all the agents in self.agent"""
@@ -390,15 +544,16 @@ class CleanupEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPrediction):
         return free_area
 
 
-# classic cleanup env
+# classic cleanup env and perturbations
 
-class CleanupEnv(MapEnv):
+class CleanupPerturbationsEnv(MapEnv):
     def __init__(
-        self,
-        ascii_map=CLEANUP_MAP,
-        num_agents=1,
-        return_agent_actions=False,
-        use_collective_reward=False,
+            self,
+            ascii_map=CLEANUP_MAP,
+            num_agents=1,
+            return_agent_actions=False,
+            use_collective_reward=False,
+            perturbation_magnitude=50,
     ):
         super().__init__(
             ascii_map,
@@ -439,11 +594,26 @@ class CleanupEnv(MapEnv):
                     self.river_points.append([row, col])
 
         self.color_map.update(CLEANUP_COLORS)
+
+        # attributes for perturbations
+        self.perturbations_frequency = CLEANUP_PERIODIC_PERT_FREQUENCY
+        self.perturbations_magnitude = perturbation_magnitude
+        self.perturbations_magnitude_relative_to_max = (self.perturbations_magnitude / MAX_PERTURBATION_MAGNITUDE)
+        self.time_step_in_instance = 0
+        self.previously_added_walls = []
 
     @property
     def action_space(self):
         return DiscreteWithDType(9, dtype=np.uint8)
 
+    def step(self, actions):
+        self.time_step_in_instance += 1
+        return super().step(actions)
+
+    def reset(self):
+        self.time_step_in_instance = 0
+        return super().reset()
+
     def custom_reset(self):
         """Initialize the walls and the waste"""
         for waste_start_point in self.waste_start_points:
@@ -481,7 +651,69 @@ class CleanupEnv(MapEnv):
     def custom_map_update(self):
         """"Update the probabilities and then spawn"""
         self.compute_probabilities()
-        self.update_map(self.spawn_apples_and_waste())
+
+        # spawn the apples and waste
+        new_apples_and_waste = self.spawn_apples_and_waste()
+        removed_walls = []
+        new_walls = []
+        removed_apples = []
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            # apply walls and apples perturbations
+            # remove previously added walls
+            removed_walls = [(wall_row, wall_col, b' ') for wall_row, wall_col, _ in self.previously_added_walls]
+            # add new walls
+            new_walls = self.perturb_walls()
+            self.previously_added_walls = new_walls
+
+            # remove some of existing apples
+            removed_apples = self.perturb_existing_apples()
+            # reduce amount of new apples
+            new_apples_and_waste = self.perturb_spawned_apples(new_apples_and_waste)
+
+        updates_to_map = removed_walls + removed_apples + new_walls + new_apples_and_waste
+
+        self.update_map(updates_to_map)
+
+    def perturb_walls(self):
+        template_map = self.get_map_with_agents()
+        empty_spaces = []
+        for i in range(template_map.shape[0]):
+            for j in range(template_map.shape[-1]):
+                if template_map[i, j] == b' ':
+                    empty_spaces.append((i, j))
+
+        amount_of_walls_to_add = int(self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED * len(
+            empty_spaces))
+
+        new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
+        new_walls = [(row, col, b'@') for row, col in new_walls]
+
+        return new_walls
+
+    def perturb_existing_apples(self):
+        template_map = self.get_map_with_agents()
+        apples_coordinates = []
+        for i in range(template_map.shape[0]):
+            for j in range(template_map.shape[-1]):
+                if template_map[i, j] == b'A':
+                    apples_coordinates.append((i, j))
+
+        amount_of_apples_to_remove = int(
+            self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED * len(
+                apples_coordinates))
+
+        new_walls = random.sample(apples_coordinates, amount_of_apples_to_remove)
+        new_walls = [(row, col, b' ') for row, col in new_walls]
+
+        return new_walls
+
+    def perturb_spawned_apples(self, new_apples):
+        percentage_of_apples_to_keep = 1 - self.perturbations_magnitude_relative_to_max * MAX_PERCENT_OF_WALLS_ALLOWED
+        amount_of_apples_to_keep = int(percentage_of_apples_to_keep * len(new_apples))
+
+        new_apples = random.sample(new_apples, amount_of_apples_to_keep)
+
+        return new_apples
 
     def setup_agents(self):
         """Constructs all the agents in self.agent"""
@@ -541,10 +773,10 @@ class CleanupEnv(MapEnv):
                 self.current_apple_spawn_prob = appleRespawnProbability
             else:
                 spawn_prob = (
-                    1
-                    - (waste_density - thresholdRestoration)
-                    / (thresholdDepletion - thresholdRestoration)
-                ) * appleRespawnProbability
+                                     1
+                                     - (waste_density - thresholdRestoration)
+                                     / (thresholdDepletion - thresholdRestoration)
+                             ) * appleRespawnProbability
                 self.current_apple_spawn_prob = spawn_prob
 
     def compute_permitted_area(self):
