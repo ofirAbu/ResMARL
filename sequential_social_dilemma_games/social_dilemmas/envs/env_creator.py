@@ -76,7 +76,7 @@ def get_env_creator(env, num_agents, args):
                 num_agents=num_agents,
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
-                perturbation_magnitude=50,
+                perturbation_magnitude=70,
             )
 
     elif env == "cleanup_pert_50_msg_self":
@@ -87,7 +87,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=50,
+                perturbation_magnitude=70,
             )
 
     elif env == "cleanup_pert_50_msg_global":
@@ -98,7 +98,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=50,
+                perturbation_magnitude=70,
             )
 
     # harvest
@@ -109,7 +109,7 @@ def get_env_creator(env, num_agents, args):
                 num_agents=num_agents,
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
-                perturbation_magnitude=50,
+                perturbation_magnitude=70,
             )
 
     elif env == "harvest_pert_50_msg_self":
@@ -120,7 +120,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=50,
+                perturbation_magnitude=70,
             )
 
     elif env == "harvest_pert_50_msg_global":
@@ -131,7 +131,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=50,
+                perturbation_magnitude=70,
             )
 
     # pert = 150
@@ -210,7 +210,7 @@ def get_env_creator(env, num_agents, args):
                 num_agents=num_agents,
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
-                perturbation_magnitude=200,
+                perturbation_magnitude=180,
             )
 
     elif env == "cleanup_pert_200_msg_self":
@@ -221,7 +221,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=200,
+                perturbation_magnitude=180,
             )
 
     elif env == "cleanup_pert_200_msg_global":
@@ -232,7 +232,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=200,
+                perturbation_magnitude=180,
             )
 
     # harvest
@@ -243,7 +243,7 @@ def get_env_creator(env, num_agents, args):
                 num_agents=num_agents,
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
-                perturbation_magnitude=200,
+                perturbation_magnitude=180,
             )
 
     elif env == "harvest_pert_200_msg_self":
@@ -254,7 +254,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=200,
+                perturbation_magnitude=180,
             )
 
     elif env == "harvest_pert_200_msg_global":
@@ -265,7 +265,7 @@ def get_env_creator(env, num_agents, args):
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,
                 use_messages_attribute=True,
-                perturbation_magnitude=200,
+                perturbation_magnitude=180,
             )
 
 
