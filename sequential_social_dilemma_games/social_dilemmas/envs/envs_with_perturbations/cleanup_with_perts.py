@@ -109,10 +109,13 @@ class CleanupPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
 
     def step(self, actions):
         self.time_step_in_instance += 1
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            self.reset(reset_time_steps=False)
         return super().step(actions)
 
-    def reset(self):
-        self.time_step_in_instance = 0
+    def reset(self, reset_time_steps=True):
+        if reset_time_steps:
+            self.time_step_in_instance = 0
         return super().reset()
 
     def custom_reset(self):
@@ -151,6 +154,7 @@ class CleanupPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
 
     def custom_map_update(self):
         """"Update the probabilities and then spawn"""
+
         self.compute_probabilities()
 
         # spawn the apples and waste
@@ -364,10 +368,13 @@ class CleanupPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPre
 
     def step(self, actions):
         self.time_step_in_instance += 1
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            self.reset(reset_time_steps=False)
         return super().step(actions)
 
-    def reset(self):
-        self.time_step_in_instance = 0
+    def reset(self, reset_time_steps=True):
+        if reset_time_steps:
+            self.time_step_in_instance = 0
         return super().reset()
 
     def custom_reset(self):
@@ -608,10 +615,13 @@ class CleanupPerturbationsEnv(MapEnv):
 
     def step(self, actions):
         self.time_step_in_instance += 1
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            self.reset(reset_time_steps=False)
         return super().step(actions)
 
-    def reset(self):
-        self.time_step_in_instance = 0
+    def reset(self, reset_time_steps=True):
+        if reset_time_steps:
+            self.time_step_in_instance = 0
         return super().reset()
 
     def custom_reset(self):

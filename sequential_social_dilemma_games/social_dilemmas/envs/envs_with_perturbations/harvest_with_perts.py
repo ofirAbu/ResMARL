@@ -69,10 +69,13 @@ class HarvestPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
 
     def step(self, actions):
         self.time_step_in_instance += 1
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            self.reset(reset_time_steps=False)
         return super().step(actions)
 
-    def reset(self):
-        self.time_step_in_instance = 0
+    def reset(self, reset_time_steps=True):
+        if reset_time_steps:
+            self.time_step_in_instance = 0
         return super().reset()
 
     def setup_agents(self):
@@ -253,10 +256,13 @@ class HarvestPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPre
 
     def step(self, actions):
         self.time_step_in_instance += 1
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            self.reset(reset_time_steps=False)
         return super().step(actions)
 
-    def reset(self):
-        self.time_step_in_instance = 0
+    def reset(self, reset_time_steps=True):
+        if reset_time_steps:
+            self.time_step_in_instance = 0
         return super().reset()
 
     def setup_agents(self):
@@ -429,10 +435,13 @@ class HarvestPerturbationEnv(MapEnv):
 
     def step(self, actions):
         self.time_step_in_instance += 1
+        if not self.time_step_in_instance % self.perturbations_frequency and self.time_step_in_instance:
+            self.reset(reset_time_steps=False)
         return super().step(actions)
 
-    def reset(self):
-        self.time_step_in_instance = 0
+    def reset(self, reset_time_steps=True):
+        if reset_time_steps:
+            self.time_step_in_instance = 0
         return super().reset()
 
     def setup_agents(self):
