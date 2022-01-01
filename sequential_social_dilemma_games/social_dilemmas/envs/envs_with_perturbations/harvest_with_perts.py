@@ -138,6 +138,7 @@ class HarvestPerturbationsEnvWithMessagesMandatory(MapEnvWithMandatoryMessages):
 
         new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
         new_walls = [(row, col, b'@') for row, col in new_walls]
+        self.perturb_map_colors()
 
         return new_walls
 
@@ -209,6 +210,9 @@ class HarvestPerturbationsEnvWithMessagesMandatory(MapEnvWithMandatoryMessages):
         num_apples = counts_dict.get(b"A", 0)
         return num_apples
 
+    def perturb_map_colors(self):
+        self.color_map[''][0] = (self.color_map[''][0] + 50) % 255
+        self.color_map['@'][0] = (self.color_map['@'][0] + 50) % 255
 
 
 # harvest with global confusion and perturbations
@@ -326,6 +330,7 @@ class HarvestPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
 
         new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
         new_walls = [(row, col, b'@') for row, col in new_walls]
+        self.perturb_map_colors()
 
         return new_walls
 
@@ -396,6 +401,10 @@ class HarvestPerturbationsEnvWithMessagesGlobal(MapEnvWithMessagesAndGlobalRewar
         counts_dict = dict(zip(unique, counts))
         num_apples = counts_dict.get(b"A", 0)
         return num_apples
+
+    def perturb_map_colors(self):
+        self.color_map[''][0] = (self.color_map[''][0] + 50) % 255
+        self.color_map['@'][0] = (self.color_map['@'][0] + 50) % 255
 
 
 # harvest with self confusion and perturbations
@@ -513,6 +522,7 @@ class HarvestPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPre
 
         new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
         new_walls = [(row, col, b'@') for row, col in new_walls]
+        self.perturb_map_colors()
 
         return new_walls
 
@@ -583,6 +593,10 @@ class HarvestPerturbationsEnvWithMessagesSelf(MapEnvWithMessagesAndSelfRewardPre
         counts_dict = dict(zip(unique, counts))
         num_apples = counts_dict.get(b"A", 0)
         return num_apples
+
+    def perturb_map_colors(self):
+        self.color_map[''][0] = (self.color_map[''][0] + 50) % 255
+        self.color_map['@'][0] = (self.color_map['@'][0] + 50) % 255
 
 
 # classic harvest with perturbations
@@ -693,6 +707,8 @@ class HarvestPerturbationEnv(MapEnv):
         new_walls = random.sample(empty_spaces, amount_of_walls_to_add)
         new_walls = [(row, col, b'@') for row, col in new_walls]
 
+        self.perturb_map_colors()
+
         return new_walls
 
     def perturb_existing_apples(self):
@@ -762,3 +778,7 @@ class HarvestPerturbationEnv(MapEnv):
         counts_dict = dict(zip(unique, counts))
         num_apples = counts_dict.get(b"A", 0)
         return num_apples
+
+    def perturb_map_colors(self):
+        self.color_map[''][0] = (self.color_map[''][0] + 50) % 255
+        self.color_map['@'][0] = (self.color_map['@'][0] + 50) % 255

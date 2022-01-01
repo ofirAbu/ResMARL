@@ -15,7 +15,7 @@ tf = try_import_tf()
 
 
 class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name):
+    def __init__(self, obs_space, action_space, num_outputs, model_config, name, adjusting_period=500 * 1e5):
         """
         A base model that uses messages to reduce its self confusion.
 
@@ -42,7 +42,7 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         self.td_errors = []
         self.counter_of_seen_states = 0
         self.td_error_history = []
-        self.adjusting_period = 1
+        self.adjusting_period = adjusting_period
 
         self.obs_space = obs_space
         self.num_outputs = num_outputs
