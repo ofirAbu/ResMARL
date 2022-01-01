@@ -321,7 +321,7 @@ def create_experiment(args):
     config = build_experiment_config_dict(args)
     trainer = get_trainer(args=args, config=config)
     experiment_dict = build_experiment_dict(args, experiment_name, trainer, config)
-    # experiment_dict["local_dir"] = "/cs/labs/jeff/ofir.abu/ResMARL/sequential_social_dilemma_games/run_scripts/run_scripts_huji_cluster/ray_results"
+    experiment_dict["local_dir"] = "/cs/labs/jeff/ofir.abu/ResMARL/sequential_social_dilemma_games/run_scripts/run_scripts_huji_cluster/ray_results"
     return Experiment(**experiment_dict)
 
 
