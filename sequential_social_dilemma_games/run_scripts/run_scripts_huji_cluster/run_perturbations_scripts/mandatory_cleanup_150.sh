@@ -3,7 +3,7 @@
 #SBATCH -c12
 #SBATCH --time=72:0:0
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH -o self_conf_harvest_150_log.out
+#SBATCH -o mandatory_cleanup_150_log.out
 #SBATCH --gres=gpu:1,vmem:16g
 #SBATCH --killable
 #SBATCH --requeue
@@ -17,8 +17,8 @@ source $workspace/venvs/res_marl_3.7/bin/activate
 cd $workspace/ResMARL/sequential_social_dilemma_games/run_scripts
 
 python train.py \
---env harvest_pert_150_msg_self \
---model self_confusion \
+--env cleanup_pert_150_mandatory \
+--model mandatory \
 --algorithm A3C \
 --num_agents 4 \
 --num_workers 3 \
@@ -31,12 +31,12 @@ python train.py \
 --gpus_for_driver 1 \
 --cpus_for_driver 0 \
 --num_samples 3 \
---entropy_coeff 0.00176 \
---moa_loss_weight 0.06663557 \
---messages_loss_weight 0.06663557 \
---lr_schedule_steps 0 8000000 \
---lr_schedule_weights 0.00126 0.000012 \
---influence_reward_weight 1.0 \
+--entropy_coeff 0.00223 \
+--moa_loss_weight 0.091650628 \
+--messages_loss_weight 0.091650628 \
+--lr_schedule_steps 0 6000000 \
+--lr_schedule_weights 0.0012 0.000044 \
+--influence_reward_weight 2.521 \
 --influence_reward_schedule_steps 0 1000000 4000000 10000000 \
 --messages_reward_schedule_steps 0 1000000 4000000 10000000 \
 --influence_reward_schedule_weights 0.0 0.0 1.0 0.5 \

@@ -3,7 +3,7 @@
 #SBATCH -c12
 #SBATCH --time=72:0:0
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH -o self_conf_harvest_150_log.out
+#SBATCH -o mandatory_cleanup_log.out
 #SBATCH --gres=gpu:1,vmem:16g
 #SBATCH --killable
 #SBATCH --requeue
@@ -17,8 +17,8 @@ source $workspace/venvs/res_marl_3.7/bin/activate
 cd $workspace/ResMARL/sequential_social_dilemma_games/run_scripts
 
 python train.py \
---env harvest_pert_150_msg_self \
---model self_confusion \
+--env cleanup_mandatory \
+--model mandatory \
 --algorithm A3C \
 --num_agents 4 \
 --num_workers 3 \

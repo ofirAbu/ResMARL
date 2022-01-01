@@ -30,8 +30,8 @@ python train.py \
 --gpus_per_worker 0 \
 --gpus_for_driver 1 \
 --cpus_for_driver 0 \
---num_samples 3 \
+--num_samples 4 \
 --entropy_coeff 0.00176 \
---lr_schedule_steps 0 20000000 \
+--lr_schedule_steps 0 4000000 \
 --lr_schedule_weights .00126 .000012
 deactivate
