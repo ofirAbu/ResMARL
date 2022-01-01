@@ -2,7 +2,8 @@ from social_dilemmas.envs.cleanup import CleanupEnv, CleanupEnvWithMessagesSelf,
 from social_dilemmas.envs.envs_with_perturbations.cleanup_with_perts import CleanupPerturbationsEnv, \
     CleanupPerturbationsEnvWithMessagesSelf, CleanupPerturbationsEnvWithMessagesGlobal
 from social_dilemmas.envs.envs_with_perturbations.harvest_with_perts import HarvestPerturbationEnv, \
-    HarvestPerturbationsEnvWithMessagesSelf, HarvestPerturbationsEnvWithMessagesGlobal
+    HarvestPerturbationsEnvWithMessagesSelf, HarvestPerturbationsEnvWithMessagesGlobal, \
+    HarvestPerturbationsEnvWithMessagesMandatory
 from social_dilemmas.envs.harvest import HarvestEnv, HarvestEnvWithMessagesSelf, HarvestEnvWithMessagesGlobal
 from social_dilemmas.envs.switch import SwitchEnv
 
@@ -32,6 +33,16 @@ def get_env_creator(env, num_agents, args):
 
         def env_creator(_):
             return HarvestEnvWithMessagesGlobal(
+                num_agents=num_agents,
+                return_agent_actions=True,
+                use_collective_reward=args.use_collective_reward,
+                use_messages_attribute=True,
+            )
+
+    elif env == "harvest_mandatory":
+
+        def env_creator(_):
+            return HarvestPerturbationsEnvWithMessagesMandatory(
                 num_agents=num_agents,
                 return_agent_actions=True,
                 use_collective_reward=args.use_collective_reward,

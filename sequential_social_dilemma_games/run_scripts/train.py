@@ -14,6 +14,7 @@ from ray.tune.registry import register_env
 from ray.tune.schedulers import PopulationBasedTraining
 
 from algorithms.a3c_baseline import build_a3c_baseline_trainer
+from algorithms.a3c_mandatory import build_a3c_mandatory_trainer
 from algorithms.a3c_messages_global_confusion import build_a3c_global_confusion_messages_trainer
 from algorithms.a3c_messages_self_confusion import build_a3c_self_confusion_messages_trainer
 from algorithms.a3c_moa import build_a3c_moa_trainer
@@ -25,6 +26,7 @@ from algorithms.ppo_scm import build_ppo_scm_trainer
 from config.default_args import add_default_args
 from models.baseline_model import BaselineModel
 from models.messages_global_confusion_model import MessagesWithGlobalConfusionModel
+from models.messages_mandatory_confusion_model import MandatoryMessagesConfusionModel
 from models.messages_self_confusion_model import MessagesWithSelfConfusionModel
 from models.moa_model import MOAModel
 from models.scm_model import SocialCuriosityModule
@@ -60,6 +62,8 @@ def build_experiment_config_dict(args):
         ModelCatalog.register_custom_model(model_name, MessagesWithSelfConfusionModel)
     elif args.model == "global_confusion":
         ModelCatalog.register_custom_model(model_name, MessagesWithGlobalConfusionModel)
+    elif args.model == "mandatory":
+        ModelCatalog.register_custom_model(model_name, MandatoryMessagesConfusionModel)
 
 
     # Each policy can have a different configuration (including custom model)
@@ -213,6 +217,9 @@ def get_trainer(args, config):
             trainer = build_ppo_baseline_trainer(config)
         if args.algorithm == "IMPALA":
             trainer = build_impala_baseline_trainer(config)
+    elif args.model == "mandatory":
+        if args.algorithm == "A3C":
+            trainer = build_a3c_mandatory_trainer(config)
     elif args.model == "moa":
         if args.algorithm == "A3C":
             trainer = build_a3c_moa_trainer(config)
@@ -314,7 +321,7 @@ def create_experiment(args):
     config = build_experiment_config_dict(args)
     trainer = get_trainer(args=args, config=config)
     experiment_dict = build_experiment_dict(args, experiment_name, trainer, config)
-    experiment_dict["local_dir"] = "/cs/labs/jeff/ofir.abu/ResMARL/sequential_social_dilemma_games/run_scripts/run_scripts_huji_cluster/ray_results"
+    # experiment_dict["local_dir"] = "/cs/labs/jeff/ofir.abu/ResMARL/sequential_social_dilemma_games/run_scripts/run_scripts_huji_cluster/ray_results"
     return Experiment(**experiment_dict)
 
 

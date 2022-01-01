@@ -9,7 +9,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--env",
         type=str,
-        default="cleanup_msg_global",
+        default="harvest_mandatory",
         help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg_self, cleanup_msg_global, "
              "harvest_msg_self or harvest_msg_global.",
     )
@@ -22,7 +22,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="global_confusion",
+        default="mandatory",
         help="Name of the model to use. Can be baseline, self_confusion, global_confusion, moa, or scm",
     )
     parser.add_argument(
@@ -80,7 +80,7 @@ def add_default_args(parser):
         "--cpus_for_driver", type=int, default=0, help="Number of CPUs used by the driver"
     )
     parser.add_argument(
-        "--gpus_for_driver", type=float, default=1, help="Number of GPUs used by the driver"
+        "--gpus_for_driver", type=float, default=0, help="Number of GPUs used by the driver"
     )
     parser.add_argument(
         "--cpus_per_worker", type=int, default=1, help="Number of CPUs used by one worker"
@@ -104,7 +104,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--local_mode",
         action="store_true",
-        default=False,
+        default=True,
         help="Force all the computation onto the driver. Useful for debugging.",
     )
     parser.add_argument(

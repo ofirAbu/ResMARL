@@ -209,6 +209,7 @@ class MessagesWithGlobalConfusionModel(RecurrentTFModelV2):
                 [input_dict["ac_trunk"], tf.cast(input_dict["other_agent_messages"], dtype=tf.float32),
                  tf.cast(input_dict["other_agent_predicted_rewards"], dtype=tf.float32)], axis=-1)
         }
+
         (self._messages_model_out, self._messages_value_out, output_h2,
          output_c2,) = self.messages_policy_model.forward_rnn(
             messages_pass_dict, [h2, c2], seq_lens
@@ -378,3 +379,5 @@ class MessagesWithGlobalConfusionModel(RecurrentTFModelV2):
 
     def global_other_predicted_reward(self):
         return self._global_other_predicted_reward
+
+    # todo - when writing the mandatory - add here "from_batch" override

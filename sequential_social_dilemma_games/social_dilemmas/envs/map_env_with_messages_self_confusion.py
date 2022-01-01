@@ -29,6 +29,7 @@ class MapEnvWithMessagesAndSelfRewardPrediction(MapEnv):
     @property
     def observation_space(self):
         obs_space = super().observation_space.spaces
+        # todo - when implementing mandatory - change the shape of the messages (like obs)
         if self.use_messages_attribute:
             obs_space = {
                 **obs_space,

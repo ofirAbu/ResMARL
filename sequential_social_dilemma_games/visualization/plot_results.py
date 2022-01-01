@@ -8,8 +8,8 @@ from scipy.stats import t
 
 from utility_funcs import get_all_subdirs
 
-ray_results_path = os.path.expanduser("~/ray_results")
-plot_path = os.path.expanduser("~/ray_results_plot")
+ray_results_path = os.path.expanduser("/home/ofir/PycharmProjects/ResMARL/sequential_social_dilemma_games/run_scripts/run_scripts_huji_cluster/ray_results_aamas_paper")
+plot_path = os.path.expanduser("/home/ofir/PycharmProjects/ResMARL/sequential_social_dilemma_games/run_scripts/run_scripts_huji_cluster/ray_results_plots")
 
 
 class PlotGraphics(object):
@@ -299,7 +299,7 @@ def get_experiment_rewards(paths):
         df = df.fillna(0)
         dfs.append(df)
 
-    env, model_name = get_env_and_model_name_from_path(paths[0])
+    env, model_name = get_env_and_model_name_from_path(paths[0]) if paths else "try1", "try2"
     color = get_color_from_model_name(model_name)
 
     # Convert environment steps to 1e8 representation
@@ -352,7 +352,8 @@ def plot_separate_results():
             csv_path = experiment_folder + "/progress.csv"
             if os.path.getsize(csv_path) > 0:
                 csvs.append(csv_path)
-        plot_csvs_results(csvs)
+        if csvs:
+            plot_csvs_results(csvs)
 
 
 def plot_combined_results():
