@@ -42,10 +42,10 @@ class MapEnvWithMandatoryMessages(MapEnv):
                 "mandatory_broadcast_transitions": Tuple(
                     [obs_space['curr_obs'],
                      Box(
-                         low=-100, high=100, shape=(self.num_agents - 1,), dtype=np.float32,
+                         low=-100, high=100, shape=(self.num_agents - 1,), dtype=np.int64,
                      ),
                      Box(
-                         low=-100, high=100, shape=(self.num_agents - 1,), dtype=np.float32,
+                         low=-100, high=100, shape=(self.num_agents - 1,), dtype=np.int64,
                      ),
                      obs_space['curr_obs']
                      ] * (self.num_agents - 1)

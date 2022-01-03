@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --mem=20g
+#SBATCH --mem=50g
 #SBATCH -c12
 #SBATCH --time=72:0:0
 #SBATCH --mail-type=BEGIN,END,FAIL
@@ -25,7 +25,7 @@ python train.py \
 --rollout_fragment_length 1000 \
 --num_envs_per_worker 5 \
 --stop_at_timesteps_total $((20 * 10 ** 6)) \
---memory $((160 * 10 ** 9)) \
+--memory $((200 * 10 ** 9)) \
 --cpus_per_worker 1 \
 --gpus_per_worker 0 \
 --gpus_for_driver 1 \

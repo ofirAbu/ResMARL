@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --mem=20g
+#SBATCH --mem=50g
 #SBATCH -c12
 #SBATCH --time=72:0:0
 #SBATCH --mail-type=BEGIN,END,FAIL

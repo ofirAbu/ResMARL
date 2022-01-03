@@ -42,7 +42,7 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         self.td_errors = []
         self.counter_of_seen_states = 0
         self.td_error_history = []
-        self.adjusting_period = adjusting_period
+        self.adjusting_period = 0  # adjusting_period
 
         self.obs_space = obs_space
         self.num_outputs = num_outputs
@@ -281,10 +281,10 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         np_arrays_of_transitions = np.array_split(input_dict["obs"]["mandatory_broadcast_transitions"],
                                                   self.num_other_agents)
         raw_others_transitions = [list(transition) for transition in np_arrays_of_transitions]
-        valuable_messages = input_dict["obs"]["valuable_messages_indices"]
+        # valuable_messages = input_dict["obs"]["valuable_messages_indices"]
         for i, transition in enumerate(raw_others_transitions):
-            if valuable_messages[i] == 1:
-                ac_critic_encoded_prev_obs = self.encoder_model(inputs=transition[0])
+            if self._prev_value is not None:
+                ac_critic_encoded_prev_obs = tf.expand_dims(self.encoder_model(inputs=transition[0]), axis=0)
                 # Compute the next action
                 ac_pass_dict = {
                     "curr_obs": ac_critic_encoded_prev_obs
@@ -293,7 +293,7 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
                     ac_pass_dict, [h1, c1], seq_lens
                 )
 
-                ac_critic_encoded_next_obs = self.encoder_model(inputs=transition[-1])
+                ac_critic_encoded_next_obs = tf.expand_dims(self.encoder_model(inputs=transition[-1]), axis=0)
                 # Compute the next action
                 ac_pass_dict = {
                     "curr_obs": ac_critic_encoded_next_obs
@@ -303,10 +303,10 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
                 )
                 # 2. calculate td error for this state
                 v_current = tf.reduce_max(next_state_value_out)
-                r_current = transition[2]
-                v_prev = prev_state_values_out[transition[1][0]]
+                r_current = tf.reduce_max(transition[2])
+                v_prev = tf.reduce_max(prev_state_values_out)
 
                 # 3. sum abs value of the td-errors
-                td_errors_sum += tf.math.abs(r_current + 0.99 * v_current - v_prev)
+                td_errors_sum += tf.math.abs(tf.cast(r_current, tf.float32) + 0.99 * v_current - v_prev)
 
-        return td_errors_sum
+        return tf.reduce_max(td_errors_sum)
