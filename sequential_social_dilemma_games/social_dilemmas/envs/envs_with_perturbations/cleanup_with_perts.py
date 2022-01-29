@@ -98,10 +98,7 @@ class CleanupPerturbationsEnvWithMessagesMandatory(MapEnvWithMandatoryMessages):
 
     @property
     def action_space(self):
-        return Tuple([
-            DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
-            DiscreteWithDType(1, dtype=np.uint8),
-        ])
+        return DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8)
 
     def step(self, actions):
         self.time_step_in_instance += 1

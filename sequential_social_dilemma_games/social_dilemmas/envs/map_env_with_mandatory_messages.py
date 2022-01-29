@@ -50,7 +50,7 @@ class MapEnvWithMandatoryMessages(MapEnv):
                      obs_space['curr_obs']
                      ] * (self.num_agents - 1)
                 ),
-                "valuable_messages_indices": Box(low=0, high=1, shape=(self.num_agents - 1,), dtype=np.uint8),
+                # "valuable_messages_indices": Box(low=0, high=1, shape=(self.num_agents - 1,), dtype=np.uint8),
             }
         obs_space = Dict(obs_space)
         # Change dtype so that ray can put all observations into one flat batch
@@ -68,10 +68,11 @@ class MapEnvWithMandatoryMessages(MapEnv):
         messages = {}
 
         if self.use_messages_attribute:
-            messages = {agent_id: extended_action[1] for agent_id, extended_action in
-                        actions.items()}
-            actions = {agent_id: extended_action[0] for agent_id, extended_action in
-                       actions.items()}
+            # messages = {agent_id: extended_action[1] for agent_id, extended_action in
+            #             actions.items()}
+            # actions = {agent_id: extended_action[0] for agent_id, extended_action in
+            #            actions.items()}
+            actions = actions
 
         observations, rewards, dones, info = super().step(actions)
 
@@ -82,7 +83,7 @@ class MapEnvWithMandatoryMessages(MapEnv):
                                                                                                           agent)
                 observations[agent.agent_id]["curr_obs"] = observations[agent.agent_id]["curr_obs"]
                 observations[agent.agent_id]["mandatory_broadcast_transitions"] = tuple(broadcast_transitions_tuples)
-                observations[agent.agent_id]["valuable_messages_indices"] = valuable_transitions
+                # observations[agent.agent_id]["valuable_messages_indices"] = valuable_transitions
 
         for agent in self.agents.values():
             if len(self.agents_last_couple_raw_observation[agent.agent_id]) == 2:
@@ -113,12 +114,13 @@ class MapEnvWithMandatoryMessages(MapEnv):
                                              self.agents_previous_action[agent.agent_id],
                                              np.array(self.agents_previous_reward[agent.agent_id]),
                                              self.agents_last_couple_raw_observation[agent.agent_id][-1]]
-            if messages[agent.agent_id] == 1 and agent_recv.agent_id != agent.agent_id:
-                valuable_indices.append(1)
-            else:
-                valuable_indices.append(0)
 
-        return tuple(np.array(transitions_to_broadcast)), np.array(valuable_indices)
+            # if messages[agent.agent_id] == 1 and agent_recv.agent_id != agent.agent_id:
+            #     valuable_indices.append(1)
+            # else:
+            #     valuable_indices.append(0)
+
+        return tuple(np.array(transitions_to_broadcast))  # , np.array(valuable_indices)
 
     def reset(self):
         """
@@ -132,11 +134,11 @@ class MapEnvWithMandatoryMessages(MapEnv):
                     "mandatory_broadcast_transitions": tuple(np.array([
                                                                           [observations[agent.agent_id]['curr_obs'],
                                                                            np.array([1]),
-                                                                           np.array([-self.max_reward_value]),
+                                                                           np.array([0]),
                                                                            observations[agent.agent_id]['curr_obs']
                                                                            ]] * (self.num_agents - 1)).reshape(-1))
                     ,
-                    "valuable_messages_indices": np.array([0] * (self.num_agents - 1)),
+                    # "valuable_messages_indices": np.array([0] * (self.num_agents - 1)),
                 }
         for agent in self.agents.values():
             self.agents_last_couple_raw_observation[agent.agent_id].append(observations[agent.agent_id]["curr_obs"])

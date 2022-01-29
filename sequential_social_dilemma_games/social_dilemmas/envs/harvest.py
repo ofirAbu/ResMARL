@@ -51,10 +51,7 @@ class HarvestEnvWithMessagesMandatory(MapEnvWithMandatoryMessages):
 
     @property
     def action_space(self):
-        return Tuple([
-            DiscreteWithDType(HARVEST_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
-            DiscreteWithDType(1, dtype=np.uint8),
-        ])
+        return DiscreteWithDType(HARVEST_BASE_ACTION_SPACE_SIZE, dtype=np.uint8)
 
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()

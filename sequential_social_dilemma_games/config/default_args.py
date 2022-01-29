@@ -9,7 +9,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--env",
         type=str,
-        default="harvest_mandatory",
+        default="harvest_msg_self",
         help="Name of the environment to use. Can be switch, cleanup, harvest, cleanup_msg_self, cleanup_msg_global, "
              "harvest_msg_self or harvest_msg_global.",
     )
@@ -22,7 +22,7 @@ def add_default_args(parser):
     parser.add_argument(
         "--model",
         type=str,
-        default="mandatory",
+        default="self_confusion",
         help="Name of the model to use. Can be baseline, self_confusion, global_confusion, moa, or scm",
     )
     parser.add_argument(

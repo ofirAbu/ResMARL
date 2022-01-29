@@ -61,7 +61,6 @@ class ActorCriticLSTM(RecurrentTFModelV2):
         :return: The model output.
         """
         input = [input_dict["curr_obs"], seq_lens] + state
-
         model_out, self._value_out, h, c = self.rnn_model(input)
         return model_out, self._value_out, h, c
 

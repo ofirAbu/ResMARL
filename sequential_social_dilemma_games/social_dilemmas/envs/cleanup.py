@@ -93,10 +93,7 @@ class CleanupEnvWithMessagesMandatory(MapEnvWithMandatoryMessages):
         #
         # base_action_space = Tuple([base_action_space] * 2) if self.use_messages_attribute else base_action_space
         # return base_action_space + Box(low=0, high=self.max_confusion_value, shape=(1, ), dtype=np.float32)
-        return Tuple([
-            DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8),
-            DiscreteWithDType(1, dtype=np.uint8),
-        ])
+        return DiscreteWithDType(CLEANUP_BASE_ACTION_SPACE_SIZE, dtype=np.uint8)
 
     def custom_reset(self):
         """Initialize the walls and the waste"""

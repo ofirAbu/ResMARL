@@ -1,3 +1,4 @@
+from social_dilemmas.envs.Taxis.multitaxienv.taxi_environment import TaxiEnv
 from social_dilemmas.envs.cleanup import CleanupEnv, CleanupEnvWithMessagesSelf, CleanupEnvWithMessagesGlobal, \
     CleanupEnvWithMessagesMandatory
 from social_dilemmas.envs.envs_with_perturbations.cleanup_with_perts import CleanupPerturbationsEnv, \
@@ -53,6 +54,8 @@ def get_env_creator(env, num_agents, args):
                 env_class = HarvestPerturbationsEnvWithMessagesGlobal
             elif 'mandatory' in env:
                 env_class = HarvestPerturbationsEnvWithMessagesMandatory
+        elif 'taxis' in env:
+            env_class = TaxiEnv
 
         def env_creator(_):
             return env_class(

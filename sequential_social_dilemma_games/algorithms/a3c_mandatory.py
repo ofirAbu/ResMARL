@@ -18,7 +18,7 @@ tf = try_import_tf()
 
 class A3CLoss(object):
     def __init__(
-            self, action_dist, actions, advantages, v_target, vf, current_mandatory_td_errors, vf_loss_coeff=0.5,
+            self, action_dist, actions, advantages, v_target, vf, vf_loss_coeff=0.5,
             entropy_coeff=0.01,
     ):
         log_prob = action_dist.logp(actions)
@@ -29,7 +29,7 @@ class A3CLoss(object):
         delta = vf - v_target
         self.vf_loss = 0.5 * tf.reduce_sum(tf.square(delta))
         self.entropy = tf.reduce_sum(action_dist.entropy())
-        self.total_loss = self.pi_loss + self.vf_loss * vf_loss_coeff - self.entropy * entropy_coeff + current_mandatory_td_errors
+        self.total_loss = self.pi_loss + self.vf_loss * vf_loss_coeff - self.entropy * entropy_coeff
 
 
 def postprocess_a3c_mandatory(policy, sample_batch, other_agent_batches=None, episode=None):
@@ -47,12 +47,11 @@ def actor_critic_loss(policy, model, dist_class, train_batch):
         train_batch[Postprocessing.ADVANTAGES],
         train_batch[Postprocessing.VALUE_TARGETS],
         model.value_function(),
-        model.current_mandatory_td_errors(),
         policy.config["vf_loss_coeff"],
         policy.config["entropy_coeff"],
     )
 
-    return policy.loss.total_loss
+    return policy.loss.total_loss + model.current_mandatory_td_errors()
 
 
 def add_value_function_fetch(policy):
@@ -137,20 +136,3 @@ def build_a3c_mandatory_trainer(config):
     )
 
     return trainer
-# from __future__ import absolute_import, division, print_function
-#
-# from ray.rllib.agents.a3c.a3c import get_policy_class, make_async_optimizer, validate_config
-# from ray.rllib.agents.a3c.a3c_tf_policy import A3CTFPolicy
-# from ray.rllib.agents.trainer_template import build_trainer
-#
-#
-# def build_a3c_mandatory_trainer(config):
-#     a3c_trainer = build_trainer(
-#         name="A3C",
-#         default_config=config,
-#         default_policy=A3CTFPolicy,
-#         get_policy_class=get_policy_class,
-#         validate_config=validate_config,
-#         make_policy_optimizer=make_async_optimizer,
-#     )
-#     return a3c_trainer

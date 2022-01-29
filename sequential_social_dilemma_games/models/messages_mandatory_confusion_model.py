@@ -4,6 +4,9 @@ from ray.rllib.models.tf.recurrent_tf_modelv2 import RecurrentTFModelV2
 from ray.rllib.policy.rnn_sequencing import add_time_dimension
 from ray.rllib.utils import try_import_tf
 from ray.rllib.utils.annotations import override
+from ray.rllib.policy.sample_batch import SampleBatch
+from ray.rllib.models.model import restore_original_dimensions, flatten
+from ray.rllib.utils.annotations import PublicAPI
 
 from config.constants import REWARD_UPPER_BOUND, EPSILON_CONSTANT
 from models.actor_critic_lstm import ActorCriticLSTM
@@ -15,7 +18,7 @@ tf = try_import_tf()
 
 
 class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name, adjusting_period=500 * 1e5):
+    def __init__(self, obs_space, action_space, num_outputs, model_config, name, adjusting_period=1e6):
         """
         A base model that uses messages to reduce its self confusion.
 
@@ -42,11 +45,11 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         self.td_errors = []
         self.counter_of_seen_states = 0
         self.td_error_history = []
-        self.adjusting_period = 0  # adjusting_period
+        self.adjusting_period = adjusting_period
 
         self.obs_space = obs_space
         self.num_outputs = num_outputs
-        self.actions_num_outputs = num_outputs - 1
+        self.actions_num_outputs = num_outputs  # - 1
         self.current_td_errors = None
 
         self.num_other_agents = model_config["custom_options"]["num_other_agents"]
@@ -72,7 +75,7 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         # note that action space is [action, message, conf_level]
         self.actions_policy_model = ActorCriticLSTM(
             inner_obs_space,
-            action_space[0],
+            action_space,
             self.actions_num_outputs,
             model_config,
             "actions_policy",
@@ -97,8 +100,11 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         inputs = tf.keras.layers.Input(shape=original_obs_dims, name="observations", dtype=tf.uint8)
 
         # Divide by 255 to transform [0,255] uint8 rgb pixel values to [0,1] float32.
-        last_layer = tf.keras.backend.cast(inputs, tf.float32)
-        last_layer = tf.math.divide(last_layer, 255.0)  # todo: replace here with normalization constant
+        if len(inputs.shape) > 2:
+            last_layer = tf.keras.backend.cast(inputs, tf.float32)
+            last_layer = tf.math.divide(last_layer, 255.0)  # todo: replace here with normalization constant
+        else:
+            last_layer = inputs
 
         # Build the CNN layers
         conv_out = build_conv_layers(model_config, last_layer)
@@ -118,6 +124,7 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         :param seq_lens: LSTM sequence lengths.
         :return: The policy logits and state.
         """
+        self.counter_of_seen_states += 1
         self._other_agent_actions = input_dict["obs"]["other_agent_actions"]
         self._visibility = input_dict["obs"]["visible_agents"]
         self._agent_prev_actions = input_dict["prev_actions"]
@@ -134,12 +141,12 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
         for k, v in rnn_input_dict.items():
             rnn_input_dict[k] = add_time_dimension(v, seq_lens)
 
+        h1, c1, *_ = state.copy()
+        self.current_td_errors, _ = self.get_td_error_on_recieved_transitions(input_dict, state.copy())
+
         output, new_state = self.forward_rnn(input_dict=rnn_input_dict,
                                              state=state,
                                              seq_lens=seq_lens)
-
-        self.current_td_errors = self.get_td_error_on_recieved_transitions(input_dict, new_state[0], new_state[1],
-                                                                           seq_lens)
 
         self._prev_value = self.value_function()
 
@@ -165,31 +172,8 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
          output_c1,) = self.actions_policy_model.forward_rnn(
             ac_pass_dict, [h1, c1], seq_lens
         )
-        self._messages_value_out = tf.ones_like(self._actions_value_out) * self._actions_value_out
-        if self._prev_value is None:
-            self._messages_model_out = tf.zeros_like(self._actions_model_out, name='dummy_message_out')[:, :, :1]
-        else:
-            # Get the number of rows in the fed value at run-time.
-            # while self._actions_model_out._rank() != self._messages_model_out._rank():
-            #     self._messages_model_out = tf.expand_dims(self._messages_model_out, axis=0)
-            # self._messages_model_out = tf.tile(self._messages_model_out,
-            #                                    [tf.shape(self._actions_model_out)[0],
-            #                                     tf.shape(self._actions_model_out)[1], 1],
-            #                                    name='not_so_dummy_msg_out')
-            try:
-                self._messages_model_out = tf.broadcast_to(self._messages_model_out,
-                                                           self._actions_model_out.get_shape())[:,
-                                           :, :1]
-            except:
-                self._messages_model_out = tf.ones_like(self._actions_model_out, name='dummy_message_out')[:, :, :1]
 
-        self._model_out = tf.concat([self._actions_model_out,
-                                     tf.convert_to_tensor(tf.cast(self._messages_model_out, tf.float32),
-                                                          dtype=tf.float32)],
-                                    axis=-1)
-        self._value_out = tf.reshape(self._actions_value_out, [-1])
-
-        return self._model_out, [output_h1, output_c1]
+        return self._actions_model_out, [output_h1, output_c1]
 
     def sort_replay_buffer_with_confusion_measure(self, input_dict):
         """
@@ -274,39 +258,52 @@ class MandatoryMessagesConfusionModel(RecurrentTFModelV2):
     def current_mandatory_td_errors(self):
         return self.current_td_errors
 
-    def get_td_error_on_recieved_transitions(self, input_dict, h1, c1, seq_lens):
-        # return tf.zeros(shape=(1,), name='td_errors_from_messages')
+    def get_td_error_on_recieved_transitions(self, input_dict, state):
+        # tf.zeros(shape=(1,), name='td_errors_from_messages')
         td_errors_sum = tf.zeros(shape=(1,))
         # 1. process hypothetical value for each state transmitted in the messages
         np_arrays_of_transitions = np.array_split(input_dict["obs"]["mandatory_broadcast_transitions"],
                                                   self.num_other_agents)
         raw_others_transitions = [list(transition) for transition in np_arrays_of_transitions]
+        seq_lens = tf.convert_to_tensor(np.array([1]).reshape(-1).astype(np.int32), dtype_hint=tf.int32)
         # valuable_messages = input_dict["obs"]["valuable_messages_indices"]
         for i, transition in enumerate(raw_others_transitions):
-            if self._prev_value is not None:
-                ac_critic_encoded_prev_obs = tf.expand_dims(self.encoder_model(inputs=transition[0]), axis=0)
-                # Compute the next action
+            if self._prev_value is not None and self.counter_of_seen_states > 2:  # and self.counter_of_seen_states >= self.adjusting_period:
+                h1, c1, *_ = state
+                ac_critic_encoded_prev_obs = self.encoder_model(inputs=transition[0])
                 ac_pass_dict = {
-                    "curr_obs": ac_critic_encoded_prev_obs
+                    "ac_trunk": ac_critic_encoded_prev_obs
                 }
-                (_, prev_state_values_out, _, _,) = self.actions_policy_model.forward_rnn(
-                    ac_pass_dict, [h1, c1], seq_lens
+                for k, v in ac_pass_dict.items():
+                    ac_pass_dict[k] = add_time_dimension(v, seq_lens)
+                _, state = self.forward_rnn(
+                    ac_pass_dict, state, seq_lens
                 )
+                prev_state_values_out = self.value_function()
+                # (_, prev_state_values_out, h1, c1,) = self.actions_policy_model.forward_rnn(
+                #     ac_pass_dict, [h1, c1], seq_lens
+                # )
 
-                ac_critic_encoded_next_obs = tf.expand_dims(self.encoder_model(inputs=transition[-1]), axis=0)
+                ac_critic_encoded_next_obs = self.encoder_model(inputs=transition[-1])
                 # Compute the next action
                 ac_pass_dict = {
-                    "curr_obs": ac_critic_encoded_next_obs
+                    "ac_trunk": ac_critic_encoded_next_obs
                 }
-                (_, next_state_value_out, _, _,) = self.actions_policy_model.forward_rnn(
-                    ac_pass_dict, [h1, c1], seq_lens
+                for k, v in ac_pass_dict.items():
+                    ac_pass_dict[k] = add_time_dimension(v, seq_lens)
+                _, state = self.forward_rnn(
+                    ac_pass_dict, state, seq_lens
                 )
+                next_state_value_out = self.value_function()
+                # (_, next_state_value_out, h1, c1,) = self.actions_policy_model.forward_rnn(
+                #     ac_pass_dict, [h1, c1], seq_lens
+                # )
                 # 2. calculate td error for this state
                 v_current = tf.reduce_max(next_state_value_out)
                 r_current = tf.reduce_max(transition[2])
                 v_prev = tf.reduce_max(prev_state_values_out)
 
                 # 3. sum abs value of the td-errors
-                td_errors_sum += tf.math.abs(tf.cast(r_current, tf.float32) + 0.99 * v_current - v_prev)
+                td_errors_sum += tf.reduce_max(tf.math.abs(tf.cast(r_current, tf.float32) + 0.99 * v_current - v_prev))
 
-        return tf.reduce_max(td_errors_sum)
+        return tf.reduce_max(td_errors_sum), state

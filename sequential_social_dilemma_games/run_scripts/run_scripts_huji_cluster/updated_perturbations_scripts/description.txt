@@ -1,2 +1,0 @@
-This folder contains the running scripts for the perturbations' experiments.
-Main difference is that running time is set to be 4 * {pert_frequency}.
